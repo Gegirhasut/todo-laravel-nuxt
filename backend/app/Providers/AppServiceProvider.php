@@ -29,5 +29,12 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(6)->by($email.'|'.$request->ip());
         });
+
+        // A ceiling for the authenticated endpoints, so a valid token cannot
+        // hammer the API (the %-prefixed LIKE search in particular) unbounded.
+        // 60/min is far above anything the todo UI generates.
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
     }
 }

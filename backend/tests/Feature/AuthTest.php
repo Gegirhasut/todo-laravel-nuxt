@@ -103,6 +103,25 @@ class AuthTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_authenticated_api_requests_are_rate_limited(): void
+    {
+        $user = User::factory()->create();
+
+        // 60 requests per minute are allowed; the 61st must be rejected.
+        for ($i = 0; $i < 60; $i++) {
+            $this->actingAs($user, 'sanctum')->getJson('/api/user')->assertOk();
+        }
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/user')
+            ->assertStatus(429)
+            ->assertJsonStructure(['message']);
+
+        // The ceiling is per user, not global: someone else is unaffected.
+        $other = User::factory()->create();
+        $this->actingAs($other, 'sanctum')->getJson('/api/user')->assertOk();
+    }
+
     public function test_login_validation_errors_return_422(): void
     {
         $this->postJson('/api/auth/login', [])
