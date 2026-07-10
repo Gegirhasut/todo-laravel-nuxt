@@ -4,7 +4,13 @@ import type { Paginated, PaginationMeta, Task, TaskPayload, TaskQuery } from '~/
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<Task[]>([])
   const meta = ref<PaginationMeta | null>(null)
+
+  /** A cold load: there is nothing on screen worth keeping. */
   const loading = ref(false)
+
+  /** A background re-sync: the rows stay on screen, just dimmed. */
+  const refreshing = ref(false)
+
   const error = ref<string | null>(null)
 
   const isEmpty = computed(() => !loading.value && !error.value && items.value.length === 0)
@@ -19,7 +25,9 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function fetchTasks(query: TaskQuery = {}, { silent = false }: FetchOptions = {}): Promise<void> {
-    if (!silent) loading.value = true
+    if (silent) refreshing.value = true
+    else loading.value = true
+
     error.value = null
 
     try {
@@ -28,6 +36,7 @@ export const useTasksStore = defineStore('tasks', () => {
         query: {
           search: query.search || undefined,
           status: query.status || undefined,
+          scope: query.scope || undefined,
           sort: query.sort || undefined,
           direction: query.direction || undefined,
           page: query.page || undefined,
@@ -42,12 +51,13 @@ export const useTasksStore = defineStore('tasks', () => {
       // applied locally, so a failed re-sync must not wipe the list or throw
       // the user into the error state.
       if (!silent) {
-        error.value = apiErrorMessage(e, 'Failed to load tasks.')
+        error.value = apiErrorMessage(e, 'Не удалось загрузить задачи.')
         items.value = []
         meta.value = null
       }
     } finally {
       loading.value = false
+      refreshing.value = false
     }
   }
 
@@ -73,15 +83,19 @@ export const useTasksStore = defineStore('tasks', () => {
     return res.data
   }
 
-  async function deleteTask(id: number): Promise<void> {
-    await useApi()(`/tasks/${id}`, { method: 'DELETE' })
+  /** Returns the confirmation message the API sent back. */
+  async function deleteTask(id: number): Promise<string> {
+    const res = await useApi()<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' })
     items.value = items.value.filter((task) => task.id !== id)
+
+    return res.message
   }
 
   return {
     items,
     meta,
     loading,
+    refreshing,
     error,
     isEmpty,
     fetchTasks,

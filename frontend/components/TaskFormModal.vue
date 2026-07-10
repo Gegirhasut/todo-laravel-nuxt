@@ -1,7 +1,9 @@
 <template>
   <div class="overlay" @click.self="emit('close')">
     <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <h2 id="modal-title" class="modal-title">{{ isEdit ? 'Edit task' : 'New task' }}</h2>
+      <h2 id="modal-title" class="modal-title">
+        {{ isEdit ? 'Редактирование задачи' : 'Новая задача' }}
+      </h2>
 
       <div v-if="serverError" class="alert-error modal-alert" role="alert">
         {{ serverError }}
@@ -9,7 +11,7 @@
 
       <form novalidate @submit.prevent="submit">
         <div class="field">
-          <label for="title">Title *</label>
+          <label for="title">Название *</label>
           <input
             id="title"
             v-model="values.title"
@@ -21,20 +23,20 @@
         </div>
 
         <div class="field">
-          <label for="description">Description</label>
+          <label for="description">Описание</label>
           <textarea id="description" v-model="values.description" rows="3" />
           <p v-if="errors.description" class="field-error">{{ errors.description }}</p>
         </div>
 
         <div class="row">
           <div class="field grow">
-            <label for="due_date">Due date</label>
+            <label for="due_date">Срок</label>
             <input id="due_date" v-model="values.due_date" type="date" :aria-invalid="!!errors.due_date">
             <p v-if="errors.due_date" class="field-error">{{ errors.due_date }}</p>
           </div>
 
           <div class="field grow">
-            <label for="status">Status</label>
+            <label for="status">Статус</label>
             <select id="status" v-model="values.status">
               <option v-for="option in TASK_STATUSES" :key="option" :value="option">
                 {{ statusLabel(option) }}
@@ -46,11 +48,11 @@
 
         <div class="actions">
           <button type="button" class="btn-ghost" :disabled="saving" @click="emit('close')">
-            Cancel
+            Отмена
           </button>
           <button type="submit" class="btn-primary" :disabled="saving">
             <span v-if="saving" class="spinner" />
-            {{ saving ? 'Saving…' : 'Save' }}
+            {{ saving ? 'Сохранение…' : 'Сохранить' }}
           </button>
         </div>
       </form>
@@ -66,7 +68,7 @@ const props = defineProps<{ task?: Task | null }>()
 
 const emit = defineEmits<{
   close: []
-  saved: []
+  saved: [task: Task]
 }>()
 
 const store = useTasksStore()
@@ -100,13 +102,11 @@ async function submit() {
   try {
     const payload = toPayload(values)
 
-    if (props.task) {
-      await store.updateTask(props.task.id, payload)
-    } else {
-      await store.createTask(payload)
-    }
+    const saved = props.task
+      ? await store.updateTask(props.task.id, payload)
+      : await store.createTask(payload)
 
-    emit('saved')
+    emit('saved', saved)
   } catch (e) {
     // Map the backend's 422 field errors back onto the form.
     const body = apiError(e)
@@ -119,7 +119,7 @@ async function submit() {
       )
     }
 
-    serverError.value = body?.message ?? 'Could not save the task. Please try again.'
+    serverError.value = body?.message ?? 'Не удалось сохранить задачу. Попробуйте ещё раз.'
   } finally {
     saving.value = false
   }
