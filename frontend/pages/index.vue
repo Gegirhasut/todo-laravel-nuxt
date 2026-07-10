@@ -28,31 +28,34 @@
       </button>
     </div>
 
-    <div class="toolbar card">
-      <input
-        v-model="searchInput"
-        type="search"
-        class="toolbar-search"
-        placeholder="Поиск задач…"
-        aria-label="Поиск задач"
-      >
+    <search class="toolbar card">
+      <div class="toolbar-field toolbar-search">
+        <label for="task-search" class="sr-only">Поиск задач</label>
+        <input id="task-search" v-model="searchInput" type="search" placeholder="Поиск задач…">
+      </div>
 
-      <select v-model="statusFilter" aria-label="Фильтр по статусу">
-        <option value="">Все статусы</option>
-        <option v-for="option in TASK_STATUSES" :key="option" :value="option">
-          {{ statusLabel(option) }}
-        </option>
-      </select>
+      <div class="toolbar-field">
+        <label for="status-filter" class="sr-only">Фильтр по статусу</label>
+        <select id="status-filter" v-model="statusFilter">
+          <option value="">Все статусы</option>
+          <option v-for="option in TASK_STATUSES" :key="option" :value="option">
+            {{ statusLabel(option) }}
+          </option>
+        </select>
+      </div>
 
-      <select v-model="sortValue" aria-label="Сортировка">
-        <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-    </div>
+      <div class="toolbar-field">
+        <label for="sort-order" class="sr-only">Сортировка</label>
+        <select id="sort-order" v-model="sortValue">
+          <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+    </search>
 
-    <div v-if="store.loading" class="state">
-      <span class="spinner spinner-dark" /> Загрузка задач…
+    <div v-if="store.loading" class="state" role="status">
+      <span class="spinner spinner-dark" aria-hidden="true" /> Загрузка задач…
     </div>
 
     <div v-else-if="store.error" class="alert-error state-block" role="alert">
@@ -67,50 +70,42 @@
 
     <!-- While a create/edit/delete re-syncs, the rows stay put and simply dim. -->
     <div v-else class="task-list-wrap">
-      <div class="task-list" :class="{ refreshing: store.refreshing }">
-        <TaskRow
-          v-for="task in store.items"
-          :key="task.id"
-          :task="task"
-          :highlighted="task.id === createdId"
-          :show-owner="listHasSeveralOwners"
-          @edit="openEdit"
-          @delete="askDelete"
-        />
-      </div>
+      <ul class="task-list" :class="{ refreshing: store.refreshing }" :aria-busy="store.refreshing">
+        <li v-for="task in store.items" :key="task.id">
+          <TaskRow
+            :task="task"
+            :highlighted="task.id === createdId"
+            :show-owner="listHasSeveralOwners"
+            @edit="openEdit"
+            @delete="askDelete"
+          />
+        </li>
+      </ul>
 
-      <div v-if="store.refreshing" class="refresh-badge" role="status">
-        <span class="spinner spinner-dark" /> Обновление…
-      </div>
+      <p v-if="store.refreshing" class="refresh-badge" role="status">
+        <span class="spinner spinner-dark" aria-hidden="true" /> Обновление…
+      </p>
     </div>
 
     <AppPagination v-if="!store.loading && !store.error" :meta="store.meta" @change="goToPage" />
 
-    <TaskFormModal
+    <!-- Lazy: the dialogs ship as their own chunks, fetched on first open. -->
+    <LazyTaskFormModal
       v-if="showModal"
       :task="editing"
       @close="closeModal"
       @saved="onSaved"
     />
 
-    <div v-if="deleting" class="overlay" @click.self="deleting = null">
-      <div class="card confirm" role="dialog" aria-modal="true">
-        <h3 class="confirm-title">Удалить задачу?</h3>
-        <p class="muted">«{{ deleting.title }}» будет удалена безвозвратно.</p>
-
-        <div v-if="deleteError" class="alert-error confirm-alert" role="alert">
-          {{ deleteError }}
-        </div>
-
-        <div class="confirm-actions">
-          <button class="btn-ghost" :disabled="deleteBusy" @click="deleting = null">Отмена</button>
-          <button class="btn-danger" :disabled="deleteBusy" @click="confirmDelete">
-            <span v-if="deleteBusy" class="spinner spinner-dark" />
-            Удалить
-          </button>
-        </div>
-      </div>
-    </div>
+    <LazyConfirmDialog
+      v-if="deleting"
+      title="Удалить задачу?"
+      :message="`«${deleting.title}» будет удалена безвозвратно.`"
+      :busy="deleteBusy"
+      :error="deleteError"
+      @confirm="confirmDelete"
+      @cancel="deleting = null"
+    />
   </div>
 </template>
 
@@ -396,12 +391,11 @@ async function confirmDelete() {
   margin-bottom: 1.25rem;
   flex-wrap: wrap;
 }
+.toolbar-field {
+  flex: 1 1 140px;
+}
 .toolbar-search {
   flex: 2 1 200px;
-}
-.toolbar select {
-  flex: 1 1 140px;
-  width: auto;
 }
 .task-list-wrap {
   position: relative;
@@ -411,6 +405,9 @@ async function confirmDelete() {
   flex-direction: column;
   gap: 0.75rem;
   transition: opacity 0.15s ease;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .task-list.refreshing {
   opacity: 0.55;
@@ -421,6 +418,7 @@ async function confirmDelete() {
   top: 0.5rem;
   left: 50%;
   transform: translateX(-50%);
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -459,32 +457,5 @@ async function confirmDelete() {
 }
 .empty-sub {
   margin: 0;
-}
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(16, 24, 40, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 60;
-}
-.confirm {
-  width: 100%;
-  max-width: 380px;
-  padding: 1.5rem;
-}
-.confirm-title {
-  margin-top: 0;
-}
-.confirm-alert {
-  margin-top: 1rem;
-}
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 1.25rem;
 }
 </style>

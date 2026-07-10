@@ -1,5 +1,5 @@
 <template>
-  <div v-if="meta && meta.last_page > 1" class="pagination">
+  <nav v-if="meta && meta.last_page > 1" class="pagination" aria-label="Навигация по страницам">
     <button
       class="btn-ghost btn-sm"
       :disabled="meta.current_page <= 1"
@@ -8,7 +8,7 @@
       Назад
     </button>
 
-    <span class="muted page-info">
+    <span class="muted page-info" aria-live="polite">
       Страница {{ meta.current_page }} из {{ meta.last_page }}
       <span class="total">(всего {{ meta.total }})</span>
     </span>
@@ -20,7 +20,7 @@
     >
       Вперёд
     </button>
-  </div>
+  </nav>
 </template>
 
 <script setup lang="ts">

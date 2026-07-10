@@ -1,10 +1,10 @@
 <template>
-  <div class="task-row card" :class="{ highlighted }">
+  <article class="task-row card" :class="{ highlighted }">
     <div class="task-main">
       <div class="task-head">
-        <span class="task-title" :class="{ done: task.status === 'completed' }">
+        <h2 class="task-title" :class="{ done: task.status === 'completed' }">
           {{ task.title }}
-        </span>
+        </h2>
         <span class="badge" :class="`badge-${task.status}`">{{ statusLabel(task.status) }}</span>
 
         <!-- Only worth saying when the list also holds other people's tasks. -->
@@ -24,10 +24,23 @@
 
     <!-- Hidden entirely when the current user may not act on this task. -->
     <div v-if="canManage" class="task-actions">
-      <button class="btn-ghost btn-sm" @click="emit('edit', task)">Изменить</button>
-      <button class="btn-danger btn-sm" @click="emit('delete', task)">Удалить</button>
+      <!-- The visible label repeats across rows, so name the task for screen readers. -->
+      <button
+        class="btn-ghost btn-sm"
+        :aria-label="`Изменить задачу «${task.title}»`"
+        @click="emit('edit', task)"
+      >
+        Изменить
+      </button>
+      <button
+        class="btn-danger btn-sm"
+        :aria-label="`Удалить задачу «${task.title}»`"
+        @click="emit('delete', task)"
+      >
+        Удалить
+      </button>
     </div>
-  </div>
+  </article>
 </template>
 
 <script setup lang="ts">
@@ -102,6 +115,8 @@ const canManage = computed(() => auth.isAdmin || isOwn.value)
 }
 .task-title {
   font-weight: 600;
+  font-size: 1rem;
+  margin: 0;
 }
 .task-title.done {
   text-decoration: line-through;

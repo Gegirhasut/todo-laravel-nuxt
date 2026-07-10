@@ -1,20 +1,22 @@
 <template>
   <div>
+    <a href="#main" class="skip-link">Перейти к содержимому</a>
+
     <header v-if="auth.isAuthenticated" class="app-header">
       <div class="app-header-inner">
         <NuxtLink to="/" class="brand">Задачи</NuxtLink>
 
-        <div class="header-right">
+        <nav class="header-right" aria-label="Учётная запись">
           <span class="muted user-info">
             {{ auth.user?.name }}
             <span v-if="auth.isAdmin" class="badge badge-in_progress">админ</span>
           </span>
           <button class="btn-ghost btn-sm" @click="auth.logout()">Выйти</button>
-        </div>
+        </nav>
       </div>
     </header>
 
-    <main>
+    <main id="main" tabindex="-1">
       <slot />
     </main>
 
