@@ -23,7 +23,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
+        // 'role' is deliberately absent: privilege must be assigned
+        // explicitly in code, never from request input.
     ];
 
     /** @var list<string> */

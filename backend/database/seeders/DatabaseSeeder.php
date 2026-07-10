@@ -14,32 +14,9 @@ class DatabaseSeeder extends Seeder
     {
         // Deterministic accounts, documented in the README. updateOrCreate keeps
         // re-seeding an existing database idempotent.
-        $admin = User::updateOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name' => 'Администратор',
-                'password' => Hash::make('password'),
-                'role' => User::ROLE_ADMIN,
-            ]
-        );
-
-        $user = User::updateOrCreate(
-            ['email' => 'user@example.com'],
-            [
-                'name' => 'Обычный пользователь',
-                'password' => Hash::make('password'),
-                'role' => User::ROLE_USER,
-            ]
-        );
-
-        $second = User::updateOrCreate(
-            ['email' => 'second@example.com'],
-            [
-                'name' => 'Второй пользователь',
-                'password' => Hash::make('password'),
-                'role' => User::ROLE_USER,
-            ]
-        );
+        $admin = $this->upsertUser('admin@example.com', 'Администратор', User::ROLE_ADMIN);
+        $user = $this->upsertUser('user@example.com', 'Обычный пользователь', User::ROLE_USER);
+        $second = $this->upsertUser('second@example.com', 'Второй пользователь', User::ROLE_USER);
 
         // Only seed tasks on a fresh database, otherwise every re-seed piles up
         // duplicates.
@@ -74,5 +51,25 @@ class DatabaseSeeder extends Seeder
             'description' => null,
             'due_date' => null,
         ]);
+    }
+
+    /**
+     * role is not mass-assignable (see User::$fillable), so it is set
+     * explicitly after the upsert.
+     */
+    private function upsertUser(string $email, string $name, string $role): User
+    {
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => Hash::make('password'),
+            ]
+        );
+
+        $user->role = $role;
+        $user->save();
+
+        return $user;
     }
 }
