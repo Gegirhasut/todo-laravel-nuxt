@@ -24,7 +24,7 @@ class AuthController extends Controller
             // A 422 with a field error keeps the login form's handling identical
             // to any other validation failure.
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'email' => [__('api.invalid_credentials')],
             ]);
         }
 
@@ -41,7 +41,7 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Logged out.']);
+        return response()->json(['message' => __('api.logged_out')]);
     }
 
     public function me(Request $request): UserResource

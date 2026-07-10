@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
         $admin = User::updateOrCreate(
             ['email' => 'admin@example.com'],
             [
-                'name' => 'Admin User',
+                'name' => 'Администратор',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_ADMIN,
             ]
@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
         $user = User::updateOrCreate(
             ['email' => 'user@example.com'],
             [
-                'name' => 'Regular User',
+                'name' => 'Обычный пользователь',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_USER,
             ]
@@ -35,7 +35,7 @@ class DatabaseSeeder extends Seeder
         $second = User::updateOrCreate(
             ['email' => 'second@example.com'],
             [
-                'name' => 'Second User',
+                'name' => 'Второй пользователь',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_USER,
             ]
@@ -58,19 +58,19 @@ class DatabaseSeeder extends Seeder
         // A few fixed rows so search, filtering and the overdue badge have
         // something predictable to show on first login.
         Task::factory()->for($user)->status(TaskStatus::Pending)->create([
-            'title' => 'Buy milk',
-            'description' => 'Whole milk, two litres.',
+            'title' => 'Купить молоко',
+            'description' => 'Цельное молоко, два литра.',
             'due_date' => now()->subDays(2),
         ]);
 
         Task::factory()->for($user)->status(TaskStatus::InProgress)->create([
-            'title' => 'Write the project README',
-            'description' => 'Setup, migrations, seeds and the test accounts.',
+            'title' => 'Написать README проекта',
+            'description' => 'Установка, миграции, сиды и тестовые аккаунты.',
             'due_date' => now()->addDays(3),
         ]);
 
         Task::factory()->for($user)->status(TaskStatus::Completed)->create([
-            'title' => 'Set up the database',
+            'title' => 'Настроить базу данных',
             'description' => null,
             'due_date' => null,
         ]);

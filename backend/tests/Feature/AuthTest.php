@@ -44,7 +44,7 @@ class AuthTest extends TestCase
             'password' => 'password',
         ])
             ->assertStatus(422)
-            ->assertJsonPath('errors.email.0', 'The provided credentials are incorrect.');
+            ->assertJsonPath('errors.email.0', 'Неверный email или пароль.');
     }
 
     public function test_login_validation_errors_return_422(): void
@@ -59,7 +59,7 @@ class AuthTest extends TestCase
     {
         $this->getJson('/api/user')
             ->assertStatus(401)
-            ->assertExactJson(['message' => 'Unauthenticated.']);
+            ->assertExactJson(['message' => 'Требуется авторизация.']);
     }
 
     public function test_an_invalid_token_returns_401(): void
@@ -90,7 +90,7 @@ class AuthTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$revoke}")
             ->postJson('/api/auth/logout')
             ->assertOk()
-            ->assertJson(['message' => 'Logged out.']);
+            ->assertJson(['message' => 'Вы вышли из системы.']);
 
         $this->assertDatabaseCount('personal_access_tokens', 1);
 

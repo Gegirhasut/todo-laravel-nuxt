@@ -60,25 +60,26 @@ class ApiExceptionHandler
             ], 422),
 
             $e instanceof AuthenticationException => response()->json([
-                'message' => 'Unauthenticated.',
+                'message' => __('api.unauthenticated'),
             ], 401),
 
+            // Laravel's own message for these is English, so always use ours.
             $e instanceof AuthorizationException,
             $e instanceof AccessDeniedHttpException => response()->json([
-                'message' => $e->getMessage() ?: 'This action is unauthorized.',
+                'message' => __('api.forbidden'),
             ], 403),
 
             $e instanceof ModelNotFoundException,
             $e instanceof NotFoundHttpException => response()->json([
-                'message' => 'Resource not found.',
+                'message' => __('api.not_found'),
             ], 404),
 
             $e instanceof HttpExceptionInterface => response()->json([
-                'message' => $e->getMessage() ?: 'HTTP error.',
+                'message' => $e->getMessage() ?: __('api.http_error'),
             ], $e->getStatusCode()),
 
             default => response()->json(array_merge(
-                ['message' => 'Server error.'],
+                ['message' => __('api.server_error')],
                 // Never leak internals unless debugging is explicitly enabled.
                 config('app.debug') ? [
                     'exception' => $e::class,
