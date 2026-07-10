@@ -1,4 +1,6 @@
-FROM php:8.3-cli
+# 8.2 is the platform floor stated in the ТЗ and DECISIONS.md — the image
+# tracks it so "works on 8.2" is actually exercised, not just claimed.
+FROM php:8.2-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip libzip-dev libsqlite3-dev \
