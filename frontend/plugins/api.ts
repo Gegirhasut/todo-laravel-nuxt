@@ -12,8 +12,23 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const router = useRouter()
 
+  // The default API base points at loopback, which is only right when the
+  // browser runs on the same machine. Opened over the network (another
+  // device, Docker on a server), the API lives on the same host the page
+  // came from — swap the hostname in. An explicit non-loopback
+  // NUXT_PUBLIC_API_BASE always wins.
+  let baseURL = config.public.apiBase
+  if (import.meta.client) {
+    const url = new URL(baseURL, window.location.origin)
+    const loopback = ['127.0.0.1', 'localhost']
+    if (loopback.includes(url.hostname) && !loopback.includes(window.location.hostname)) {
+      url.hostname = window.location.hostname
+      baseURL = url.toString()
+    }
+  }
+
   const api = $fetch.create({
-    baseURL: config.public.apiBase,
+    baseURL,
     headers: { Accept: 'application/json' },
 
     onRequest({ options }) {

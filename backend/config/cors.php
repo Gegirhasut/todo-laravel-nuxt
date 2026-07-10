@@ -12,7 +12,12 @@ return [
         'http://localhost:3000,http://127.0.0.1:3000'
     ))))),
 
-    'allowed_origins_patterns' => [],
+    // Any private-network host running the SPA on :3000 (a LAN demo, Docker
+    // on another machine) is allowed out of the box; public origins still
+    // have to be listed explicitly in CORS_ALLOWED_ORIGINS.
+    'allowed_origins_patterns' => [
+        '#^http://(10(\.\d{1,3}){3}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|192\.168(\.\d{1,3}){2}):3000$#',
+    ],
 
     'allowed_headers' => ['*'],
 
