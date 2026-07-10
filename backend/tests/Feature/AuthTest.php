@@ -144,6 +144,21 @@ class AuthTest extends TestCase
             ->assertStatus(401);
     }
 
+    public function test_role_cannot_be_mass_assigned(): void
+    {
+        // role is not in User::$fillable: a smuggled value must be discarded
+        // and the column's DB default must win.
+        $user = User::create([
+            'name' => 'Probe',
+            'email' => 'probe@example.com',
+            'password' => 'secret',
+            'role' => User::ROLE_ADMIN,
+        ]);
+
+        $this->assertSame(User::ROLE_USER, $user->fresh()->role);
+        $this->assertFalse($user->fresh()->isAdmin());
+    }
+
     public function test_authenticated_user_can_fetch_their_profile(): void
     {
         $user = User::factory()->create();
