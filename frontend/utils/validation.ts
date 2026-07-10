@@ -21,19 +21,19 @@ export function validateTask(values: TaskFormValues): Record<string, string> {
 
   const title = values.title.trim()
   if (!title) {
-    errors.title = 'Title is required.'
+    errors.title = 'Укажите название задачи.'
   } else if (title.length < 3) {
-    errors.title = 'Title must be at least 3 characters.'
+    errors.title = 'Название должно содержать минимум 3 символа.'
   } else if (title.length > 255) {
-    errors.title = 'Title must not exceed 255 characters.'
+    errors.title = 'Название не должно превышать 255 символов.'
   }
 
   if (values.due_date && Number.isNaN(Date.parse(values.due_date))) {
-    errors.due_date = 'Please enter a valid date.'
+    errors.due_date = 'Укажите корректную дату.'
   }
 
   if (!TASK_STATUSES.includes(values.status as TaskStatus)) {
-    errors.status = 'Please choose a valid status.'
+    errors.status = 'Выберите допустимый статус.'
   }
 
   return errors

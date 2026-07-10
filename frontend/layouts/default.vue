@@ -2,14 +2,14 @@
   <div>
     <header v-if="auth.isAuthenticated" class="app-header">
       <div class="app-header-inner">
-        <NuxtLink to="/" class="brand">To&#8209;Do</NuxtLink>
+        <NuxtLink to="/" class="brand">Задачи</NuxtLink>
 
         <div class="header-right">
           <span class="muted user-info">
             {{ auth.user?.name }}
-            <span v-if="auth.isAdmin" class="badge badge-in_progress">admin</span>
+            <span v-if="auth.isAdmin" class="badge badge-in_progress">админ</span>
           </span>
-          <button class="btn-ghost btn-sm" @click="auth.logout()">Log out</button>
+          <button class="btn-ghost btn-sm" @click="auth.logout()">Выйти</button>
         </div>
       </div>
     </header>
@@ -17,6 +17,8 @@
     <main>
       <slot />
     </main>
+
+    <AppToasts />
   </div>
 </template>
 

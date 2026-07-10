@@ -1,9 +1,9 @@
 import type { TaskStatus } from '~/types'
 
 const LABELS: Record<TaskStatus, string> = {
-  pending: 'Pending',
-  in_progress: 'In progress',
-  completed: 'Completed',
+  pending: 'Ожидает',
+  in_progress: 'В работе',
+  completed: 'Выполнено',
 }
 
 export function statusLabel(status: TaskStatus): string {
@@ -16,7 +16,7 @@ export function formatDate(date: string | null): string {
   const parsed = new Date(date)
   if (Number.isNaN(parsed.getTime())) return date
 
-  return parsed.toLocaleDateString(undefined, {
+  return parsed.toLocaleDateString('ru-RU', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

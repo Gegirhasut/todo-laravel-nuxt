@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
       const body = apiError(e)
       // Bad credentials come back as a 422 on the email field.
       error.value =
-        body?.errors?.email?.[0] ?? body?.message ?? 'Login failed. Please try again.'
+        body?.errors?.email?.[0] ?? body?.message ?? 'Не удалось войти. Попробуйте ещё раз.'
       return false
     } finally {
       loading.value = false

@@ -5,12 +5,12 @@
       :disabled="meta.current_page <= 1"
       @click="emit('change', meta.current_page - 1)"
     >
-      Previous
+      Назад
     </button>
 
     <span class="muted page-info">
-      Page {{ meta.current_page }} of {{ meta.last_page }}
-      <span class="total">({{ meta.total }} total)</span>
+      Страница {{ meta.current_page }} из {{ meta.last_page }}
+      <span class="total">(всего {{ meta.total }})</span>
     </span>
 
     <button
@@ -18,7 +18,7 @@
       :disabled="meta.current_page >= meta.last_page"
       @click="emit('change', meta.current_page + 1)"
     >
-      Next
+      Вперёд
     </button>
   </div>
 </template>

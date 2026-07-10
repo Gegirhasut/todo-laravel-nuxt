@@ -1,8 +1,8 @@
 <template>
   <div class="login-wrap">
     <div class="card login-card">
-      <h1 class="login-title">Sign in</h1>
-      <p class="muted login-sub">Use one of the seeded test accounts below.</p>
+      <h1 class="login-title">Вход</h1>
+      <p class="muted login-sub">Используйте один из тестовых аккаунтов ниже.</p>
 
       <div v-if="auth.error" class="alert-error login-alert" role="alert">
         {{ auth.error }}
@@ -23,7 +23,7 @@
         </div>
 
         <div class="field">
-          <label for="password">Password</label>
+          <label for="password">Пароль</label>
           <input
             id="password"
             v-model="password"
@@ -37,14 +37,15 @@
 
         <button class="btn-primary submit" type="submit" :disabled="auth.loading">
           <span v-if="auth.loading" class="spinner" />
-          {{ auth.loading ? 'Signing in…' : 'Sign in' }}
+          {{ auth.loading ? 'Вход…' : 'Войти' }}
         </button>
       </form>
 
       <div class="hint muted">
-        <strong>Test accounts</strong><br>
-        admin@example.com / password<br>
-        user@example.com / password
+        <strong>Тестовые аккаунты</strong><br>
+        admin@example.com / password — видит и правит всё<br>
+        user@example.com / password<br>
+        second@example.com / password
       </div>
     </div>
   </div>
@@ -61,8 +62,8 @@ const password = ref('')
 const errors = reactive<{ email?: string; password?: string }>({})
 
 async function submit() {
-  errors.email = email.value.trim() ? undefined : 'Email is required.'
-  errors.password = password.value ? undefined : 'Password is required.'
+  errors.email = email.value.trim() ? undefined : 'Введите email.'
+  errors.password = password.value ? undefined : 'Введите пароль.'
   if (errors.email || errors.password) return
 
   if (await auth.login(email.value.trim(), password.value)) {

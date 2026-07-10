@@ -2,8 +2,8 @@
   <div class="container">
     <div class="card error-card">
       <h1 class="code">{{ error.statusCode }}</h1>
-      <p class="muted">{{ error.message || 'Something went wrong.' }}</p>
-      <button class="btn-primary" @click="clearError({ redirect: '/' })">Go home</button>
+      <p class="muted">{{ error.message || 'Что-то пошло не так.' }}</p>
+      <button class="btn-primary" @click="clearError({ redirect: '/' })">На главную</button>
     </div>
   </div>
 </template>

@@ -56,8 +56,8 @@ describe('auth store login', () => {
   it('surfaces the 422 field error on wrong credentials and stays signed out', async () => {
     apiMock.mockRejectedValue(
       httpError(422, {
-        message: 'The provided credentials are incorrect.',
-        errors: { email: ['The provided credentials are incorrect.'] },
+        message: 'Неверный email или пароль.',
+        errors: { email: ['Неверный email или пароль.'] },
       }),
     )
 
@@ -65,7 +65,7 @@ describe('auth store login', () => {
     const ok = await auth.login('user@example.com', 'wrong')
 
     expect(ok).toBe(false)
-    expect(auth.error).toBe('The provided credentials are incorrect.')
+    expect(auth.error).toBe('Неверный email или пароль.')
     expect(auth.isAuthenticated).toBe(false)
     expect(auth.user).toBeNull()
   })
@@ -76,17 +76,17 @@ describe('auth store login', () => {
     const auth = useAuthStore()
 
     expect(await auth.login('user@example.com', 'password')).toBe(false)
-    expect(auth.error).toBe('Login failed. Please try again.')
+    expect(auth.error).toBe('Не удалось войти. Попробуйте ещё раз.')
   })
 
   it('is not left loading once a login fails', async () => {
-    apiMock.mockRejectedValue(httpError(500, { message: 'Server error.' }))
+    apiMock.mockRejectedValue(httpError(500, { message: 'Ошибка сервера.' }))
 
     const auth = useAuthStore()
     await auth.login('user@example.com', 'password')
 
     expect(auth.loading).toBe(false)
-    expect(auth.error).toBe('Server error.')
+    expect(auth.error).toBe('Ошибка сервера.')
   })
 
   it('clearSession drops both the token and the user', () => {

@@ -21,7 +21,7 @@ describe('validateTask', () => {
   })
 
   it('rejects a title shorter than 3 characters', () => {
-    expect(validateTask(form({ title: 'ab' })).title).toMatch(/at least 3/)
+    expect(validateTask(form({ title: 'ab' })).title).toMatch(/минимум 3/)
   })
 
   it('rejects a title longer than 255 characters', () => {

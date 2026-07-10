@@ -3,9 +3,9 @@ import { formatDate, isOverdue, statusLabel } from '~/utils/format'
 
 describe('statusLabel', () => {
   it('turns enum values into human labels', () => {
-    expect(statusLabel('pending')).toBe('Pending')
-    expect(statusLabel('in_progress')).toBe('In progress')
-    expect(statusLabel('completed')).toBe('Completed')
+    expect(statusLabel('pending')).toBe('Ожидает')
+    expect(statusLabel('in_progress')).toBe('В работе')
+    expect(statusLabel('completed')).toBe('Выполнено')
   })
 })
 
