@@ -1,0 +1,568 @@
+openapi: 3.0.3
+
+info:
+  title: To-Do API
+  version: "1.0.0"
+  description: |
+    REST API for the To-Do application.
+
+    ## Authentication
+
+    Authentication uses **Laravel Sanctum bearer tokens**. Call
+    `POST /api/auth/login` with the seeded credentials, then send the returned
+    token on every other request:
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    In this page you can click **Authorize** and paste the token to try the
+    endpoints out directly.
+
+    ## Seeded accounts
+
+    | Role  | Email               | Password   |
+    | ----- | ------------------- | ---------- |
+    | admin | `admin@example.com` | `password` |
+    | user  | `user@example.com`  | `password` |
+
+    ## Errors
+
+    Every failure returns the same JSON shape: a `message`, plus an `errors`
+    map on validation failures (422).
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: Login, logout and the current user.
+  - name: Tasks
+    description: Task CRUD, search, filtering, sorting and pagination.
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and receive a bearer token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password
+      responses:
+        "200":
+          description: Authenticated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Plain-text Sanctum token. Store it and send it as a bearer token.
+                    example: 3|Kj8xQ2mB7nP1sR4tV6wY9zA0cD5eF8gH2iJ3kL4m
+                  user:
+                    $ref: "#/components/schemas/User"
+        "422":
+          description: Missing fields, or the credentials did not match.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+              example:
+                message: The provided credentials are incorrect.
+                errors:
+                  email: ["The provided credentials are incorrect."]
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the token used for this request
+      responses:
+        "200":
+          description: The token was revoked. Other tokens of the same user stay valid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Logged out.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /api/user:
+    get:
+      tags: [Auth]
+      summary: The currently authenticated user
+      responses:
+        "200":
+          description: The current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /api/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      description: |
+        Regular users see only their own tasks; admins see everyone's.
+        Supports search, status filtering, whitelisted sorting and pagination.
+      parameters:
+        - name: search
+          in: query
+          description: Free-text match against the title and the description.
+          schema:
+            type: string
+            maxLength: 255
+          example: milk
+        - name: status
+          in: query
+          description: Filter by status.
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+        - name: sort
+          in: query
+          description: Column to sort by. Tasks without a due date always sort last.
+          schema:
+            type: string
+            enum: [due_date, status, title, created_at]
+            default: created_at
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: A page of tasks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskCollection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      description: The task is always owned by the authenticated user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreTaskRequest"
+      responses:
+        "201":
+          description: The created task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/tasks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+
+    get:
+      tags: [Tasks]
+      summary: Fetch a single task
+      description: Allowed for the owner of the task and for admins.
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Tasks]
+      summary: Replace a task
+      description: Allowed for the owner of the task and for admins.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreTaskRequest"
+      responses:
+        "200":
+          description: The updated task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+    patch:
+      tags: [Tasks]
+      summary: Update part of a task
+      description: |
+        Allowed for the owner of the task and for admins. Every field is
+        optional, but it is validated when present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: The updated task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+    delete:
+      tags: [Tasks]
+      summary: Delete a task
+      description: Allowed for the owner of the task and for admins.
+      responses:
+        "200":
+          description: The task was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Task deleted.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The plain-text token returned by `POST /api/auth/login`.
+
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: Task identifier.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 1
+
+  schemas:
+    TaskStatus:
+      type: string
+      enum: [pending, in_progress, completed]
+      example: pending
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: Regular User
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        role:
+          type: string
+          enum: [user, admin]
+          example: user
+
+    TaskOwner:
+      type: object
+      description: Present when the task's owner has been loaded.
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: Regular User
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          description: The owner of the task.
+          example: 2
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Buy milk
+        description:
+          type: string
+          nullable: true
+          example: Whole milk, two litres.
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-08-01"
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-01T09:30:00+00:00"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-01T09:30:00+00:00"
+        owner:
+          $ref: "#/components/schemas/TaskOwner"
+
+    TaskEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Task"
+
+    TaskCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+              nullable: true
+            last:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+            next:
+              type: string
+              nullable: true
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        from:
+          type: integer
+          nullable: true
+          example: 1
+        last_page:
+          type: integer
+          example: 3
+        path:
+          type: string
+          example: http://localhost:8000/api/tasks
+        per_page:
+          type: integer
+          example: 10
+        to:
+          type: integer
+          nullable: true
+          example: 10
+        total:
+          type: integer
+          example: 25
+
+    StoreTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Buy milk
+        description:
+          type: string
+          nullable: true
+          example: Whole milk, two litres.
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-08-01"
+        status:
+          allOf:
+            - $ref: "#/components/schemas/TaskStatus"
+          description: Defaults to `pending` when omitted.
+
+    UpdateTaskRequest:
+      type: object
+      description: Send only the fields you want to change.
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Buy oat milk
+        description:
+          type: string
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Resource not found.
+
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: The title field is required.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            title: ["The title field is required."]
+
+  responses:
+    Unauthenticated:
+      description: No token was sent, or the token is invalid or expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: Unauthenticated.
+
+    Forbidden:
+      description: Authenticated, but not the owner of the task (and not an admin).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: This action is unauthorized.
+
+    NotFound:
+      description: The task does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: Resource not found.
+
+    ValidationFailed:
+      description: The payload or the query string failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: Server error.
+
+security:
+  - bearerAuth: []
