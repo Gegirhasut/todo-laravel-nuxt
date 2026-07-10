@@ -1,63 +1,77 @@
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <h2 id="modal-title" class="modal-title">
-        {{ isEdit ? 'Редактирование задачи' : 'Новая задача' }}
-      </h2>
+  <AppModal :title="isEdit ? 'Редактирование задачи' : 'Новая задача'" @close="emit('close')">
+    <div v-if="serverError" class="alert-error modal-alert" role="alert">
+      {{ serverError }}
+    </div>
 
-      <div v-if="serverError" class="alert-error modal-alert" role="alert">
-        {{ serverError }}
+    <form novalidate @submit.prevent="submit">
+      <div class="field">
+        <label for="title">Название *</label>
+        <input
+          id="title"
+          v-model="values.title"
+          type="text"
+          maxlength="255"
+          required
+          :aria-invalid="!!errors.title"
+          :aria-describedby="errors.title ? 'title-error' : undefined"
+        >
+        <p v-if="errors.title" id="title-error" class="field-error">{{ errors.title }}</p>
       </div>
 
-      <form novalidate @submit.prevent="submit">
-        <div class="field">
-          <label for="title">Название *</label>
+      <div class="field">
+        <label for="description">Описание</label>
+        <textarea
+          id="description"
+          v-model="values.description"
+          rows="3"
+          :aria-describedby="errors.description ? 'description-error' : undefined"
+        />
+        <p v-if="errors.description" id="description-error" class="field-error">
+          {{ errors.description }}
+        </p>
+      </div>
+
+      <div class="row">
+        <div class="field grow">
+          <label for="due_date">Срок</label>
           <input
-            id="title"
-            v-model="values.title"
-            type="text"
-            maxlength="255"
-            :aria-invalid="!!errors.title"
+            id="due_date"
+            v-model="values.due_date"
+            type="date"
+            :aria-invalid="!!errors.due_date"
+            :aria-describedby="errors.due_date ? 'due-date-error' : undefined"
           >
-          <p v-if="errors.title" class="field-error">{{ errors.title }}</p>
+          <p v-if="errors.due_date" id="due-date-error" class="field-error">{{ errors.due_date }}</p>
         </div>
 
-        <div class="field">
-          <label for="description">Описание</label>
-          <textarea id="description" v-model="values.description" rows="3" />
-          <p v-if="errors.description" class="field-error">{{ errors.description }}</p>
+        <div class="field grow">
+          <label for="status">Статус</label>
+          <select
+            id="status"
+            v-model="values.status"
+            :aria-invalid="!!errors.status"
+            :aria-describedby="errors.status ? 'status-error' : undefined"
+          >
+            <option v-for="option in TASK_STATUSES" :key="option" :value="option">
+              {{ statusLabel(option) }}
+            </option>
+          </select>
+          <p v-if="errors.status" id="status-error" class="field-error">{{ errors.status }}</p>
         </div>
+      </div>
 
-        <div class="row">
-          <div class="field grow">
-            <label for="due_date">Срок</label>
-            <input id="due_date" v-model="values.due_date" type="date" :aria-invalid="!!errors.due_date">
-            <p v-if="errors.due_date" class="field-error">{{ errors.due_date }}</p>
-          </div>
-
-          <div class="field grow">
-            <label for="status">Статус</label>
-            <select id="status" v-model="values.status">
-              <option v-for="option in TASK_STATUSES" :key="option" :value="option">
-                {{ statusLabel(option) }}
-              </option>
-            </select>
-            <p v-if="errors.status" class="field-error">{{ errors.status }}</p>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button type="button" class="btn-ghost" :disabled="saving" @click="emit('close')">
-            Отмена
-          </button>
-          <button type="submit" class="btn-primary" :disabled="saving">
-            <span v-if="saving" class="spinner" />
-            {{ saving ? 'Сохранение…' : 'Сохранить' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+      <div class="actions">
+        <button type="button" class="btn-ghost" :disabled="saving" @click="emit('close')">
+          Отмена
+        </button>
+        <button type="submit" class="btn-primary" :disabled="saving">
+          <span v-if="saving" class="spinner" aria-hidden="true" />
+          {{ saving ? 'Сохранение…' : 'Сохранить' }}
+        </button>
+      </div>
+    </form>
+  </AppModal>
 </template>
 
 <script setup lang="ts">
@@ -127,25 +141,6 @@ async function submit() {
 </script>
 
 <style scoped>
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(16, 24, 40, 0.45);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 4rem 1rem;
-  z-index: 50;
-  overflow-y: auto;
-}
-.modal {
-  width: 100%;
-  max-width: 480px;
-  padding: 1.5rem;
-}
-.modal-title {
-  margin: 0 0 1.25rem;
-}
 .modal-alert {
   margin-bottom: 1rem;
 }
