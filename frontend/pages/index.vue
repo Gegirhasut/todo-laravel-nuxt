@@ -209,7 +209,10 @@ function pushQuery(
   patch: Record<string, string | number | undefined>,
   { resetPage = true, replace = false }: QueryOptions = {},
 ) {
-  const next: Record<string, string> = { ...(route.query as Record<string, string>) }
+  // The router's current route is the live source of truth even mid-navigation.
+  const next: Record<string, string> = {
+    ...(router.currentRoute.value.query as Record<string, string>),
+  }
 
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined || value === '') delete next[key]
@@ -241,10 +244,16 @@ watch(searchInput, (value) => {
 
 watch(statusFilter, (value) => {
   if (resettingFilters) return
+  // Hydrated back from the URL — there is nothing new to write.
+  if (value === queryString('status')) return
   pushQuery({ status: value || undefined })
 })
 
 watch(sortValue, (value) => {
+  if (resettingFilters) return
+  // Hydrated back from the URL — there is nothing new to write.
+  if (value === currentSort()) return
+
   // The default sort is not state worth writing to the URL — only a
   // deliberately chosen one stays shareable in the address.
   if (value === DEFAULT_SORT) {
