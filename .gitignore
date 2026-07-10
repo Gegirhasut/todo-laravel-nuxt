@@ -1,0 +1,5 @@
+# Root-level ignores; backend/ and frontend/ have their own as well.
+.DS_Store
+*.log
+.idea
+.vscode
