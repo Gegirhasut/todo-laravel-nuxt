@@ -137,6 +137,37 @@ class AuthTest extends TestCase
             ->assertJsonMissingPath('data.password');
     }
 
+    public function test_a_token_is_rejected_after_the_configured_expiration(): void
+    {
+        // The shipped default: 7 days. Guard against the empty-env foot-gun
+        // that would silently disable expiry.
+        $this->assertNotEmpty(config('sanctum.expiration'));
+
+        config(['sanctum.expiration' => 10080]);
+
+        $user = User::factory()->create();
+
+        // Age a token one minute past the lifetime by editing created_at:
+        // Sanctum's guard compares it against now() minus the expiration.
+        $expired = $user->createToken('spa');
+        $expired->accessToken->forceFill([
+            'created_at' => now()->subMinutes(10081),
+        ])->save();
+
+        $fresh = $user->createToken('spa');
+
+        // The expired token goes first: a successful authentication is
+        // cached on the guard for the lifetime of the test app, which would
+        // mask the rejection if the order were reversed.
+        $this->withHeader('Authorization', "Bearer {$expired->plainTextToken}")
+            ->getJson('/api/user')
+            ->assertStatus(401);
+
+        $this->withHeader('Authorization', "Bearer {$fresh->plainTextToken}")
+            ->getJson('/api/user')
+            ->assertOk();
+    }
+
     public function test_logout_revokes_only_the_current_token(): void
     {
         $user = User::factory()->create();
