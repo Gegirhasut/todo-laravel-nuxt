@@ -36,7 +36,6 @@ export const useTasksStore = defineStore('tasks', () => {
         query: {
           search: query.search || undefined,
           status: query.status || undefined,
-          scope: query.scope || undefined,
           sort: query.sort || undefined,
           direction: query.direction || undefined,
           page: query.page || undefined,
@@ -59,6 +58,13 @@ export const useTasksStore = defineStore('tasks', () => {
       loading.value = false
       refreshing.value = false
     }
+  }
+
+  /** Fetch a single task for the detail view; the list state stays untouched. */
+  async function fetchTask(id: number): Promise<Task> {
+    const res = await useApi()<{ data: Task }>(`/tasks/${id}`)
+
+    return res.data
   }
 
   async function createTask(payload: TaskPayload): Promise<Task> {
@@ -99,6 +105,7 @@ export const useTasksStore = defineStore('tasks', () => {
     error,
     isEmpty,
     fetchTasks,
+    fetchTask,
     createTask,
     updateTask,
     deleteTask,

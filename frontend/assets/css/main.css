@@ -1,18 +1,106 @@
+/*
+ * Both themes are defined here as variable palettes; every component reads
+ * colors through the variables only. The brand accent is the tronk green
+ * (#2caf6b); primary buttons pair it with dark text and links use a darker
+ * shade, so text contrast stays at WCAG AA in both themes.
+ */
 :root {
   --bg: #f7f8fa;
   --surface: #ffffff;
+  --surface-hover: #f1f3f5;
   --border: #e4e7ec;
   --text: #1a1d23;
   --muted: #667085;
-  --primary: #3b5bdb;
-  --primary-hover: #364fc7;
+
+  /* Brand accent (button surfaces, dark text on top). */
+  --primary: #2caf6b;
+  --primary-hover: #2dc574;
+  --primary-contrast: #12281c;
+  /* Darker accent for text on light surfaces: links, icons, active states. */
+  --primary-strong: #1e7a4a;
+  --primary-soft: #e9f9f0;
+
   --danger: #e03131;
   --danger-hover: #c92a2a;
+  --danger-border: #ffc9c9;
+  --danger-soft: #fff5f5;
   --success: #2f9e44;
   --warning: #f08c00;
-  --radius: 10px;
+
+  --badge-pending-bg: #fff4e6;
+  --badge-pending-text: #b36b00;
+  --badge-progress-bg: #e9f9f0;
+  --badge-progress-text: #1e7a4a;
+  --badge-completed-bg: #eef1f4;
+  --badge-completed-text: #5b6572;
+
+  --overlay: rgba(16, 24, 40, 0.45);
+  --focus-soft: rgba(44, 175, 107, 0.35);
+
+  /* Chevron for native selects — muted per theme, since a background-image
+     cannot read currentColor. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23667085' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5'/%3E%3C/svg%3E");
+
+  /* Spacing scale — every margin/padding in the app sits on this rhythm. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Inner padding of the big cards (task detail, dialogs). */
+  --card-pad: 1.75rem;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.06);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.18), 0 2px 8px rgba(16, 24, 40, 0.08);
+
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* A slightly cool near-black keeps surfaces readable instead of muddy:
+     the card is clearly lighter than the page, borders clearly lighter still. */
+  --bg: #131316;
+  --surface: #1d1d22;
+  --surface-hover: #26262d;
+  --border: #33333c;
+  --text: #ededf0;
+  --muted: #a0a0ab;
+
+  --primary: #2caf6b;
+  --primary-hover: #2dc574;
+  --primary-contrast: #12281c;
+  /* On dark surfaces the bright brand green is the readable one. */
+  --primary-strong: #2dc574;
+  --primary-soft: rgba(44, 175, 107, 0.16);
+
+  --danger: #ff6b5e;
+  --danger-hover: #ff8a80;
+  --danger-border: #5d2622;
+  --danger-soft: rgba(224, 49, 49, 0.12);
+  --success: #4ccb7d;
+  --warning: #ffb224;
+
+  --badge-pending-bg: rgba(240, 140, 0, 0.16);
+  --badge-pending-text: #ffb224;
+  --badge-progress-bg: rgba(44, 175, 107, 0.16);
+  --badge-progress-text: #2dc574;
+  --badge-completed-bg: rgba(255, 255, 255, 0.08);
+  --badge-completed-text: #a8b0ba;
+
+  --overlay: rgba(0, 0, 0, 0.65);
+  --focus-soft: rgba(45, 197, 116, 0.4);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23a0a0ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5'/%3E%3C/svg%3E");
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
 }
 
 * {
@@ -34,7 +122,7 @@ body {
 }
 
 a {
-  color: var(--primary);
+  color: var(--primary-strong);
   text-decoration: none;
 }
 
@@ -54,7 +142,8 @@ button:disabled {
 
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
+  font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
@@ -66,16 +155,16 @@ button:disabled {
   border: 1px solid var(--border);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: #f1f3f5;
+  background: var(--surface-hover);
 }
 
 .btn-danger {
   background: transparent;
   color: var(--danger);
-  border: 1px solid #ffc9c9;
+  border: 1px solid var(--danger-border);
 }
 .btn-danger:hover:not(:disabled) {
-  background: #fff5f5;
+  background: var(--danger-soft);
 }
 
 .btn-sm {
@@ -90,15 +179,36 @@ textarea {
   width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
+}
+
+/* Native selects keep their behavior; only the cheap system arrow goes,
+   replaced by a themed chevron that matches both palettes. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.4rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 12px 8px;
+  cursor: pointer;
+}
+
+/* Long text should be comfortable to write, never a cramped scroll box. */
+textarea {
+  resize: vertical;
+  min-height: 9rem;
+  line-height: 1.55;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid rgba(59, 91, 219, 0.35);
+  outline: 2px solid var(--focus-soft);
   border-color: var(--primary);
 }
 
@@ -111,13 +221,18 @@ label {
 }
 
 .field {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-5);
 }
 
 .field-error {
   color: var(--danger);
   font-size: 0.8rem;
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  margin: var(--space-1) 0 0;
 }
 
 .card {
@@ -141,16 +256,16 @@ label {
   font-weight: 600;
 }
 .badge-pending {
-  background: #fff4e6;
-  color: var(--warning);
+  background: var(--badge-pending-bg);
+  color: var(--badge-pending-text);
 }
 .badge-in_progress {
-  background: #e7f5ff;
-  color: #1971c2;
+  background: var(--badge-progress-bg);
+  color: var(--badge-progress-text);
 }
 .badge-completed {
-  background: #ebfbee;
-  color: var(--success);
+  background: var(--badge-completed-bg);
+  color: var(--badge-completed-text);
 }
 
 .muted {
@@ -160,16 +275,18 @@ label {
 .spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-top-color: #fff;
+  /* currentColor keeps it readable on any button or surface it sits on. */
+  border: 2px solid transparent;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
   border-radius: 50%;
   display: inline-block;
   animation: spin 0.7s linear infinite;
   vertical-align: middle;
 }
 .spinner-dark {
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
+  border-color: var(--border);
+  border-top-color: var(--primary-strong);
 }
 @keyframes spin {
   to {
@@ -178,9 +295,9 @@ label {
 }
 
 .alert-error {
-  background: #fff5f5;
-  border: 1px solid #ffc9c9;
-  color: var(--danger-hover);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
   padding: 0.7rem 0.9rem;
   border-radius: 8px;
   font-size: 0.9rem;
@@ -218,7 +335,7 @@ label {
 
 /* A clear focus ring for keyboard users, without a permanent outline on click. */
 :focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-strong);
   outline-offset: 2px;
   border-radius: 4px;
 }

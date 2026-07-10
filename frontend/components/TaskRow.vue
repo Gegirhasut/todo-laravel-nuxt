@@ -1,44 +1,35 @@
 <template>
-  <article class="task-row card" :class="{ highlighted }">
-    <div class="task-main">
-      <div class="task-head">
-        <h2 class="task-title" :class="{ done: task.status === 'completed' }">
+  <article class="task-row card">
+    <div class="task-head">
+      <h2 class="task-title" :class="{ done: task.status === 'completed' }">
+        <!-- A real link (copyable, middle-clickable, tabbable) stretched over
+             the whole row, so the entire card is one click target. The click
+             also tells the list to stack the detail as an overlay. -->
+        <NuxtLink :to="`/tasks/${task.id}`" class="task-link" @click="emit('open')">
           {{ task.title }}
-        </h2>
-        <span class="badge" :class="`badge-${task.status}`">{{ statusLabel(task.status) }}</span>
+        </NuxtLink>
+      </h2>
+      <span class="badge" :class="`badge-${task.status}`">{{ statusLabel(task.status) }}</span>
 
-        <!-- Only worth saying when the list also holds other people's tasks. -->
-        <span v-if="showOwner && isOwn" class="badge badge-own">Моя</span>
-      </div>
-
-      <p v-if="task.description" class="task-desc muted">{{ task.description }}</p>
-
-      <div class="task-meta muted">
-        <span :class="{ overdue: isOverdue(task.due_date, task.status) }">
-          Срок: {{ formatDate(task.due_date) }}
-        </span>
-        <!-- The «Моя» badge already says whose it is, so don't repeat the name. -->
-        <span v-if="showOwner && !isOwn && task.owner"> · {{ task.owner.name }}</span>
-      </div>
+      <!-- Only worth saying when the list also holds other people's tasks. -->
+      <span v-if="showOwner && isOwn" class="badge badge-own">Моя</span>
     </div>
 
-    <!-- Hidden entirely when the current user may not act on this task. -->
-    <div v-if="canManage" class="task-actions">
-      <!-- The visible label repeats across rows, so name the task for screen readers. -->
-      <button
-        class="btn-ghost btn-sm"
-        :aria-label="`Изменить задачу «${task.title}»`"
-        @click="emit('edit', task)"
-      >
-        Изменить
-      </button>
-      <button
-        class="btn-danger btn-sm"
-        :aria-label="`Удалить задачу «${task.title}»`"
-        @click="emit('delete', task)"
-      >
-        Удалить
-      </button>
+    <p v-if="task.description" class="task-desc muted">{{ task.description }}</p>
+
+    <div class="task-meta muted">
+      <span v-if="task.due_date" class="due" :class="{ overdue: isOverdue(task.due_date, task.status) }">
+        <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M8 3v4m8-4v4M3 10h18" />
+        </svg>
+        <span class="sr-only">Срок:</span>
+        {{ formatDate(task.due_date) }}
+      </span>
+      <span v-else class="no-due">Без срока</span>
+
+      <!-- The «Моя» badge already says whose it is, so don't repeat the name. -->
+      <span v-if="showOwner && !isOwn && task.owner">· {{ task.owner.name }}</span>
     </div>
   </article>
 </template>
@@ -49,96 +40,102 @@ import type { Task } from '~/types'
 const props = withDefaults(
   defineProps<{
     task: Task
-    /** Briefly flashes a task that was just added, so it is easy to spot. */
-    highlighted?: boolean
-    /** True when the list mixes several owners, i.e. admin or ?scope=all. */
+    /** True when the list mixes several owners, i.e. the admin's list. */
     showOwner?: boolean
   }>(),
-  { highlighted: false, showOwner: false },
+  { showOwner: false },
 )
 
 const emit = defineEmits<{
-  edit: [task: Task]
-  delete: [task: Task]
+  /** The row was clicked — the list opens the detail as an overlay. */
+  open: []
 }>()
 
 const auth = useAuthStore()
 
 const isOwn = computed(() => props.task.user_id === auth.user?.id)
-
-// Mirrors TaskPolicy on the backend: admins manage everything, everyone else
-// only their own tasks.
-const canManage = computed(() => auth.isAdmin || isOwn.value)
 </script>
 
 <style scoped>
 .task-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
+  position: relative;
+  padding: var(--space-4) var(--space-5);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.task-row.highlighted {
-  border-color: var(--success);
-  animation: flash 2s ease-out;
-}
-@keyframes flash {
-  0%,
-  35% {
-    background: #ebfbee;
-    box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.18);
-  }
-  100% {
-    background: var(--surface);
-    box-shadow: var(--shadow);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .task-row.highlighted {
-    animation: none;
-    background: #ebfbee;
-  }
-}
-.badge-own {
-  background: #eef2ff;
-  color: var(--primary);
-}
-.task-main {
-  min-width: 0;
+.task-row:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
 }
 .task-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 .task-title {
   font-weight: 600;
   font-size: 1rem;
+  line-height: 1.4;
   margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .task-title.done {
   text-decoration: line-through;
   color: var(--muted);
 }
+.task-link {
+  color: inherit;
+}
+/* Stretch the link's hit area over the whole card. */
+.task-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.task-link:hover {
+  color: var(--primary-strong);
+}
+.badge-own {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
 .task-desc {
-  margin: 0.4rem 0 0;
-  font-size: 0.9rem;
-  white-space: pre-wrap;
+  margin: var(--space-2) 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-line;
   word-break: break-word;
+  max-width: 65ch;
+  /* The full text lives on the task's own page; the row shows a teaser. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .task-meta {
-  margin-top: 0.5rem;
+  margin-top: var(--space-3);
   font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.meta-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.no-due {
+  opacity: 0.75;
 }
 .overdue {
   color: var(--danger);
   font-weight: 600;
-}
-.task-actions {
-  display: flex;
-  gap: 0.4rem;
-  flex-shrink: 0;
 }
 </style>

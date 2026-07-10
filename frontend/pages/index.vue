@@ -1,116 +1,121 @@
 <template>
-  <div class="container">
-    <div class="page-head">
-      <div>
-        <h1 class="page-title">Задачи</h1>
-        <p class="muted page-sub">{{ subtitle }}</p>
-      </div>
-      <button class="btn-primary" @click="openCreate">+ Новая задача</button>
-    </div>
-
-    <!-- Admins always see everything, so the switch is only for regular users. -->
-    <div v-if="!auth.isAdmin" class="scope-switch" role="group" aria-label="Чьи задачи показывать">
-      <button
-        class="scope-btn"
-        :class="{ active: scope === 'mine' }"
-        :aria-pressed="scope === 'mine'"
-        @click="scope = 'mine'"
-      >
-        Мои задачи
-      </button>
-      <button
-        class="scope-btn"
-        :class="{ active: scope === 'all' }"
-        :aria-pressed="scope === 'all'"
-        @click="scope = 'all'"
-      >
-        Все задачи
-      </button>
-    </div>
-
-    <search class="toolbar card">
-      <div class="toolbar-field toolbar-search">
-        <label for="task-search" class="sr-only">Поиск задач</label>
-        <input id="task-search" v-model="searchInput" type="search" placeholder="Поиск задач…">
+  <div>
+    <!-- The list hides only under a directly-loaded task page; under the
+         overlay it stays mounted and untouched. -->
+    <div v-if="showList" class="container">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Задачи</h1>
+          <p class="muted page-sub">{{ subtitle }}</p>
+        </div>
+        <!-- Full label on wide screens, a compact accent «+» on phones. -->
+        <button
+          class="btn-primary new-task-btn"
+          aria-label="Новая задача"
+          title="Новая задача"
+          @click="openCreate"
+        >
+          <svg class="new-task-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <path d="M10 4v12M4 10h12" />
+          </svg>
+          <span class="new-task-label">Новая задача</span>
+        </button>
       </div>
 
-      <div class="toolbar-field">
-        <label for="status-filter" class="sr-only">Фильтр по статусу</label>
-        <select id="status-filter" v-model="statusFilter">
-          <option value="">Все статусы</option>
-          <option v-for="option in TASK_STATUSES" :key="option" :value="option">
-            {{ statusLabel(option) }}
-          </option>
-        </select>
+      <!-- Two clusters: the FILTERS (with their reset right beside them) and
+           the VIEW option (sort), visually apart — the reset clears only the
+           group it sits in. role="search" is the landmark; the native
+           <search> element trips Vue's component resolution. -->
+      <div role="search" class="toolbar card">
+        <div class="toolbar-group filter-group">
+          <div class="toolbar-field toolbar-search">
+            <label for="task-search" class="sr-only">Поиск задач</label>
+            <input id="task-search" v-model="searchInput" type="search" placeholder="Поиск задач…">
+          </div>
+
+          <div class="toolbar-field">
+            <label for="status-filter" class="sr-only">Фильтр по статусу</label>
+            <select id="status-filter" v-model="statusFilter">
+              <option value="">Все статусы</option>
+              <option v-for="option in TASK_STATUSES" :key="option" :value="option">
+                {{ statusLabel(option) }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Always in its slot so the row never shifts; disabled until a
+               filter is applied. Sorting is a view option, not a filter —
+               it neither enables the button nor gets reset by it. -->
+          <button
+            type="button"
+            class="toolbar-reset"
+            :disabled="!hasActiveFilters"
+            aria-label="Сбросить фильтры"
+            title="Сбросить фильтры"
+            @click="resetFilters"
+          >
+            <!-- A funnel with an × — clears the filters, not a reload. -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055" />
+              <path d="m22 3-5 5" />
+              <path d="m17 3 5 5" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="toolbar-group view-group">
+          <div class="toolbar-field">
+            <label for="sort-order" class="sr-only">Сортировка</label>
+            <select id="sort-order" v-model="sortValue">
+              <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      <div class="toolbar-field">
-        <label for="sort-order" class="sr-only">Сортировка</label>
-        <select id="sort-order" v-model="sortValue">
-          <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
+      <div v-if="store.loading" class="state" role="status">
+        <span class="spinner spinner-dark" aria-hidden="true" /> Загрузка задач…
       </div>
-    </search>
 
-    <div v-if="store.loading" class="state" role="status">
-      <span class="spinner spinner-dark" aria-hidden="true" /> Загрузка задач…
+      <div v-else-if="store.error" class="alert-error state-block" role="alert">
+        {{ store.error }}
+        <button class="btn-ghost btn-sm retry" @click="reload">Повторить</button>
+      </div>
+
+      <div v-else-if="store.isEmpty" class="state empty card">
+        <p class="empty-title">Задачи не найдены</p>
+        <p class="muted empty-sub">{{ emptyHint }}</p>
+      </div>
+
+      <!-- While a create/edit/delete re-syncs, the rows stay put and simply dim. -->
+      <div v-else class="task-list-wrap">
+        <ul class="task-list" :class="{ refreshing: store.refreshing }" :aria-busy="store.refreshing">
+          <li v-for="task in store.items" :key="task.id">
+            <TaskRow
+              :task="task"
+              :show-owner="listHasSeveralOwners"
+              @open="taskOverlay = true"
+            />
+          </li>
+        </ul>
+
+        <p v-if="store.refreshing" class="refresh-badge" role="status">
+          <span class="spinner spinner-dark" aria-hidden="true" /> Обновление…
+        </p>
+      </div>
+
+      <AppPagination v-if="!store.loading && !store.error" :meta="store.meta" @change="goToPage" />
     </div>
 
-    <div v-else-if="store.error" class="alert-error state-block" role="alert">
-      {{ store.error }}
-      <button class="btn-ghost btn-sm retry" @click="reload">Повторить</button>
-    </div>
-
-    <div v-else-if="store.isEmpty" class="state empty card">
-      <p class="empty-title">Задачи не найдены</p>
-      <p class="muted empty-sub">{{ emptyHint }}</p>
-    </div>
-
-    <!-- While a create/edit/delete re-syncs, the rows stay put and simply dim. -->
-    <div v-else class="task-list-wrap">
-      <ul class="task-list" :class="{ refreshing: store.refreshing }" :aria-busy="store.refreshing">
-        <li v-for="task in store.items" :key="task.id">
-          <TaskRow
-            :task="task"
-            :highlighted="task.id === createdId"
-            :show-owner="listHasSeveralOwners"
-            @edit="openEdit"
-            @delete="askDelete"
-          />
-        </li>
-      </ul>
-
-      <p v-if="store.refreshing" class="refresh-badge" role="status">
-        <span class="spinner spinner-dark" aria-hidden="true" /> Обновление…
-      </p>
-    </div>
-
-    <AppPagination v-if="!store.loading && !store.error" :meta="store.meta" @change="goToPage" />
-
-    <!-- Lazy: the dialogs ship as their own chunks, fetched on first open. -->
-    <LazyTaskFormModal
-      v-if="showModal"
-      :task="editing"
-      @close="closeModal"
-      @saved="onSaved"
-    />
-
-    <LazyConfirmDialog
-      v-if="deleting"
-      title="Удалить задачу?"
-      :message="`«${deleting.title}» будет удалена безвозвратно.`"
-      :busy="deleteBusy"
-      :error="deleteError"
-      @confirm="confirmDelete"
-      @cancel="deleting = null"
-    />
+    <!-- /tasks/{id} and /tasks/new render here, stacked over the list or as a full page. -->
+    <NuxtPage />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { SortColumn, SortDirection, Task, TaskQuery, TaskScope, TaskStatus } from '~/types'
+import type { SortColumn, SortDirection, TaskQuery, TaskStatus } from '~/types'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -125,13 +130,21 @@ const SORT_OPTIONS = [
 
 const DEFAULT_SORT = 'created_at:desc'
 const SEARCH_DEBOUNCE_MS = 350
-const HIGHLIGHT_MS = 2000
 
 const auth = useAuthStore()
 const store = useTasksStore()
-const toasts = useToastsStore()
 const route = useRoute()
 const router = useRouter()
+
+// True while the task detail child route was opened from within the list, so
+// it stacks as an overlay and the list stays mounted underneath. A directly
+// loaded /tasks/{id} leaves it false and hides the list entirely.
+const taskOverlay = useState('task-detail-overlay', () => false)
+const showList = computed(() => route.path === '/' || taskOverlay.value)
+
+// Set by the detail view after a create or delete, so the list re-syncs the
+// next time it is in front — without refetching on every overlay close.
+const listStale = useState('tasks-list-stale', () => false)
 
 function queryString(key: string): string {
   const value = route.query[key]
@@ -143,12 +156,11 @@ function queryString(key: string): string {
 const searchInput = ref(queryString('search'))
 const statusFilter = ref(queryString('status'))
 const sortValue = ref(currentSort())
-const scope = ref<TaskScope>(currentScope())
 
 const hasActiveFilters = computed(() => !!queryString('search') || !!queryString('status'))
 
-// An admin's list always mixes owners; a regular user's only does in "all" mode.
-const listHasSeveralOwners = computed(() => auth.isAdmin || scope.value === 'all')
+// Only an admin's list mixes several owners; a user only ever sees their own.
+const listHasSeveralOwners = computed(() => auth.isAdmin)
 
 const emptyHint = computed(() => {
   if (hasActiveFilters.value) return 'Попробуйте изменить поиск или сбросить фильтр.'
@@ -156,16 +168,9 @@ const emptyHint = computed(() => {
   return 'Создайте первую задачу, чтобы начать.'
 })
 
-const subtitle = computed(() => {
-  if (auth.isAdmin) return 'Показаны задачи всех пользователей.'
-  return scope.value === 'all'
-    ? 'Показаны задачи всех пользователей. Чужие задачи доступны только для чтения.'
-    : 'Ваши задачи.'
-})
-
-function currentScope(): TaskScope {
-  return queryString('scope') === 'all' ? 'all' : 'mine'
-}
+const subtitle = computed(() =>
+  auth.isAdmin ? 'Показаны задачи всех пользователей.' : 'Ваши задачи.',
+)
 
 function currentSort(): string {
   const sort = queryString('sort')
@@ -182,16 +187,28 @@ function apiQuery(): TaskQuery {
   return {
     search: queryString('search') || undefined,
     status: (queryString('status') as TaskStatus) || undefined,
-    // 'mine' is the server default, so it never needs to travel.
-    scope: currentScope() === 'all' ? 'all' : undefined,
     sort,
     direction,
     page: Number(queryString('page')) || undefined,
   }
 }
 
+interface QueryOptions {
+  /** Any change to search/filter/sort invalidates the current page number. */
+  resetPage?: boolean
+  /**
+   * Overwrite the current history entry instead of adding one. Used for
+   * debounced search keystrokes, where every letter as a Back-button stop
+   * would be noise; deliberate actions (filter, sort, page) get real entries.
+   */
+  replace?: boolean
+}
+
 /** Merge a patch into the URL query; empty values drop the key entirely. */
-function pushQuery(patch: Record<string, string | number | undefined>, resetPage = true) {
+function pushQuery(
+  patch: Record<string, string | number | undefined>,
+  { resetPage = true, replace = false }: QueryOptions = {},
+) {
   const next: Record<string, string> = { ...(route.query as Record<string, string>) }
 
   for (const [key, value] of Object.entries(patch)) {
@@ -199,149 +216,104 @@ function pushQuery(patch: Record<string, string | number | undefined>, resetPage
     else next[key] = String(value)
   }
 
-  // Any change to search/filter/sort invalidates the current page number.
   if (resetPage) delete next.page
 
-  router.replace({ query: next })
+  if (replace) router.replace({ query: next })
+  else router.push({ query: next })
 }
 
 // Debounce the search box so we don't hit the API on every keystroke.
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
+// While a reset runs, the control watchers stay quiet: they would each push
+// a query computed from the route as it was BEFORE the reset navigation
+// resolves, re-applying the very filters being cleared.
+let resettingFilters = false
+
 watch(searchInput, (value) => {
+  if (resettingFilters) return
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => pushQuery({ search: value.trim() || undefined }), SEARCH_DEBOUNCE_MS)
+  searchTimer = setTimeout(
+    () => pushQuery({ search: value.trim() || undefined }, { replace: true }),
+    SEARCH_DEBOUNCE_MS,
+  )
 })
 
-watch(statusFilter, (value) => pushQuery({ status: value || undefined }))
-
-// 'mine' is the default, so it stays out of the URL.
-watch(scope, (value) => pushQuery({ scope: value === 'all' ? 'all' : undefined }))
+watch(statusFilter, (value) => {
+  if (resettingFilters) return
+  pushQuery({ status: value || undefined })
+})
 
 watch(sortValue, (value) => {
+  // The default sort is not state worth writing to the URL — only a
+  // deliberately chosen one stays shareable in the address.
+  if (value === DEFAULT_SORT) {
+    pushQuery({ sort: undefined, direction: undefined })
+    return
+  }
+
   const [sort, direction] = value.split(':')
   pushQuery({ sort, direction })
 })
 
 // Keep the controls in step with the URL when the user hits back/forward.
+// The key guard means stacking the detail route on top (and coming back from
+// it) never refetches or resets the list the user was just looking at —
+// unless the detail view marked the list stale (create/delete).
+let lastFetchedKey: string | null = null
+
 watch(
   () => route.query,
   () => {
+    // A /tasks/{id} child is on top; the list is either hidden or untouched.
+    if (route.path !== '/') return
+
     if (queryString('search') !== searchInput.value.trim()) searchInput.value = queryString('search')
     statusFilter.value = queryString('status')
     sortValue.value = currentSort()
-    scope.value = currentScope()
 
-    store.fetchTasks(apiQuery())
+    const key = JSON.stringify(route.query)
+    if (key === lastFetchedKey && !listStale.value) return
+
+    // A stale re-sync swaps the rows in place instead of blanking the list.
+    const silent = listStale.value && key === lastFetchedKey && store.items.length > 0
+    lastFetchedKey = key
+    listStale.value = false
+
+    store.fetchTasks(apiQuery(), { silent })
   },
   { immediate: true },
 )
 
 function goToPage(page: number) {
-  pushQuery({ page }, false)
+  pushQuery({ page }, { resetPage: false })
+}
+
+/** Clears search + status (and the page) in one go; the sort stays. */
+function resetFilters() {
+  // A pending debounced keystroke must not re-apply the old search term.
+  clearTimeout(searchTimer)
+  resettingFilters = true
+  searchInput.value = ''
+  statusFilter.value = ''
+  pushQuery({ search: undefined, status: undefined })
+  nextTick(() => {
+    resettingFilters = false
+  })
 }
 
 function reload() {
   store.fetchTasks(apiQuery())
 }
 
-/**
- * Re-sync the page after a create/update/delete. The change is already applied
- * locally, so this swaps the rows underneath the user instead of emptying the
- * list and flashing the loading spinner.
- */
-function refreshQuietly() {
-  return store.fetchTasks(apiQuery(), { silent: true })
-}
-
-// --- Flash the freshly created task ----------------------------------------
-// An edit updates a row that is already on screen and the toast is enough, but
-// a brand new task needs pointing at — it can land anywhere in the sort order.
-const createdId = ref<number | null>(null)
-let highlightTimer: ReturnType<typeof setTimeout> | undefined
-
-function flashCreated(id: number) {
-  clearTimeout(highlightTimer)
-  createdId.value = id
-
-  highlightTimer = setTimeout(() => {
-    if (createdId.value === id) createdId.value = null
-  }, HIGHLIGHT_MS)
-}
-
 onBeforeUnmount(() => {
   clearTimeout(searchTimer)
-  clearTimeout(highlightTimer)
 })
 
-// --- Create / edit ---------------------------------------------------------
-const showModal = ref(false)
-const editing = ref<Task | null>(null)
-
+/** Creating happens in the same detail card, opened empty over the list. */
 function openCreate() {
-  editing.value = null
-  showModal.value = true
-}
-
-function openEdit(task: Task) {
-  editing.value = task
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-  editing.value = null
-}
-
-async function onSaved(task: Task) {
-  const wasEdit = !!editing.value
-  closeModal()
-
-  toasts.success(wasEdit ? 'Задача обновлена.' : 'Задача создана.')
-
-  await refreshQuietly()
-
-  // Only flash a new task, and only if it actually landed on the page we are
-  // looking at — an active filter or sort can push it onto another page.
-  if (!wasEdit && store.items.some((item) => item.id === task.id)) {
-    flashCreated(task.id)
-  }
-}
-
-// --- Delete ----------------------------------------------------------------
-const deleting = ref<Task | null>(null)
-const deleteBusy = ref(false)
-const deleteError = ref<string | null>(null)
-
-function askDelete(task: Task) {
-  deleting.value = task
-  deleteError.value = null
-}
-
-async function confirmDelete() {
-  if (!deleting.value) return
-
-  deleteBusy.value = true
-  deleteError.value = null
-
-  try {
-    // The row is removed from the list as soon as the request succeeds.
-    const message = await store.deleteTask(deleting.value.id)
-    deleting.value = null
-    toasts.success(message)
-
-    // Deleting the last row of a page would leave us on an empty page.
-    const meta = store.meta
-    if (store.items.length === 0 && meta && meta.current_page > 1) {
-      goToPage(meta.current_page - 1)
-    } else {
-      await refreshQuietly()
-    }
-  } catch (e) {
-    deleteError.value = apiErrorMessage(e, 'Не удалось удалить задачу.')
-  } finally {
-    deleteBusy.value = false
-  }
+  taskOverlay.value = true
+  router.push('/tasks/new')
 }
 </script>
 
@@ -350,52 +322,136 @@ async function confirmDelete() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 .page-title {
   margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.3;
 }
 .page-sub {
-  margin: 0.15rem 0 0;
+  margin: var(--space-1) 0 0;
   font-size: 0.9rem;
 }
-.scope-switch {
+.new-task-btn {
   display: inline-flex;
-  padding: 0.25rem;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
-  background: #eef0f4;
-  border-radius: 999px;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.scope-btn {
-  background: transparent;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 0.4rem 1rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+.new-task-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
-.scope-btn:hover:not(.active) {
-  color: var(--text);
+/* Phones: just the accent «+», sized like the other header controls. */
+@media (max-width: 640px) {
+  .new-task-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+  .new-task-label {
+    display: none;
+  }
+  .new-task-icon {
+    width: 18px;
+    height: 18px;
+  }
 }
-.scope-btn.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
-}
+/* Desktop: one row of two clusters — filters (search, status, their reset)
+   on the left, the sort on the right behind a divider. Widths keep the
+   longest select label visible; nothing ever clips. */
 .toolbar {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  margin-bottom: 1.25rem;
   flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.filter-group {
+  flex: 1 1 34rem;
+}
+.filter-group .toolbar-field:not(.toolbar-search) {
+  flex: 0 0 13rem;
+}
+.view-group {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+}
+.view-group .toolbar-field {
+  flex: 0 0 13rem;
 }
 .toolbar-field {
-  flex: 1 1 140px;
+  min-width: 0;
 }
 .toolbar-search {
-  flex: 2 1 200px;
+  flex: 1 1 12rem;
+  /* Don't stretch the filter cluster all the way to the sort — the empty
+     space between the groups is part of the message. */
+  max-width: 26rem;
+}
+.toolbar-reset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--primary-strong);
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.toolbar-reset:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.toolbar-reset:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
+}
+.toolbar-reset svg {
+  width: 18px;
+  height: 18px;
+}
+/* Narrow: the filter cluster wraps (search full row, then status + reset),
+   the sort drops to its own full row — still a separate group, minus the
+   divider that only makes sense side by side. */
+@media (max-width: 860px) {
+  .filter-group {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  .toolbar-search {
+    flex: 1 1 100%;
+  }
+  .filter-group .toolbar-field:not(.toolbar-search) {
+    flex: 1 1 auto;
+  }
+  .view-group {
+    flex: 1 1 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+  .view-group .toolbar-field {
+    flex: 1 1 auto;
+  }
 }
 .task-list-wrap {
   position: relative;
@@ -403,7 +459,7 @@ async function confirmDelete() {
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
   transition: opacity 0.15s ease;
   list-style: none;
   margin: 0;
@@ -415,13 +471,13 @@ async function confirmDelete() {
 }
 .refresh-badge {
   position: absolute;
-  top: 0.5rem;
+  top: var(--space-2);
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
   background: var(--surface);
@@ -434,16 +490,16 @@ async function confirmDelete() {
 .state {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   color: var(--muted);
-  padding: 2rem 0;
+  padding: var(--space-6) 0;
   justify-content: center;
 }
 .state-block {
-  margin: 1rem 0;
+  margin: var(--space-4) 0;
 }
 .retry {
-  margin-left: 0.75rem;
+  margin-left: var(--space-3);
 }
 .empty {
   flex-direction: column;

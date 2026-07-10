@@ -10,6 +10,8 @@ export const useAuthStore = defineStore('auth', () => {
   // The token lives in a cookie so a page reload keeps the session.
   const token = useCookie<string | null>('auth_token', {
     sameSite: 'lax',
+    // Never let the token travel over plain HTTP in a real deployment.
+    secure: import.meta.env.PROD,
     maxAge: 60 * 60 * 24 * 7,
   })
 

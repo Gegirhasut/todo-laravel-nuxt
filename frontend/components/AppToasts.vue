@@ -43,14 +43,14 @@ const toasts = useToastsStore()
   font-size: 0.9rem;
 }
 .toast-success {
-  border-color: #b2f2bb;
-  background: #ebfbee;
-  color: #1e7a34;
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 .toast-error {
-  border-color: #ffc9c9;
-  background: #fff5f5;
-  color: var(--danger-hover);
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 .toast-icon {
   display: inline-flex;

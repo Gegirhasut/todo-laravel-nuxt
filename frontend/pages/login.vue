@@ -67,7 +67,15 @@ async function submit() {
   if (errors.email || errors.password) return
 
   if (await auth.login(email.value.trim(), password.value)) {
-    await navigateTo((route.query.redirect as string) || '/')
+    // Only follow in-app paths; anything else (external or protocol-relative
+    // URLs) falls back to the task list.
+    const redirect = route.query.redirect
+    const target =
+      typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+        ? redirect
+        : '/'
+
+    await navigateTo(target)
   }
 }
 </script>

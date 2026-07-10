@@ -50,14 +50,23 @@ describe('AppModal accessibility', () => {
     expect(document.getElementById(labelId)?.textContent).toBe('Удалить задачу?')
   })
 
-  it('moves focus to the first focusable element on open', async () => {
+  it('moves focus to the first focusable element of the content on open', async () => {
     await openModal()
+    // The content field, not the header's close button.
     expect(document.activeElement).toBe(byId('one'))
   })
 
-  it('falls back to the dialog itself when it holds nothing focusable', async () => {
+  it('falls back to the close button when the content holds nothing focusable', async () => {
     await openModal(withoutControls)
-    expect(document.activeElement).toBe(dialog())
+    expect(document.activeElement).toBe(document.querySelector('.modal-close'))
+  })
+
+  it('closes via the header close button', async () => {
+    const wrapper = await openModal()
+
+    document.querySelector<HTMLButtonElement>('.modal-close')!.click()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
   it('emits close on Escape', async () => {
@@ -68,19 +77,47 @@ describe('AppModal accessibility', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
+  it('closes when a click starts and ends on the backdrop', async () => {
+    const wrapper = await openModal()
+    const overlay = document.querySelector('.overlay')!
+
+    overlay.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    overlay.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('stays open when a drag starts inside and is released on the backdrop', async () => {
+    const wrapper = await openModal()
+    const overlay = document.querySelector('.overlay')!
+
+    // Text selection sweeping out of the card: press inside, release outside.
+    byId('one').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    overlay.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+
+    expect(wrapper.emitted('close')).toBeUndefined()
+
+    // And the reverse: press on the backdrop, release inside the card.
+    overlay.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    byId('one').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
   it('traps Tab at the end and wraps back to the first element', async () => {
     await openModal()
 
     byId('three').focus()
     press('Tab')
 
-    expect(document.activeElement).toBe(byId('one'))
+    // First in document order is the header's close button.
+    expect(document.activeElement).toBe(document.querySelector('.modal-close'))
   })
 
   it('traps Shift+Tab at the start and wraps to the last element', async () => {
     await openModal()
 
-    byId('one').focus()
+    document.querySelector<HTMLButtonElement>('.modal-close')!.focus()
     press('Tab', true)
 
     expect(document.activeElement).toBe(byId('three'))

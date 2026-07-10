@@ -45,7 +45,6 @@ describe('tasks store', () => {
       query: {
         search: 'milk',
         status: undefined,
-        scope: undefined,
         sort: undefined,
         direction: undefined,
         page: 2,
@@ -54,15 +53,19 @@ describe('tasks store', () => {
     })
   })
 
-  it('passes scope=all through to the API', async () => {
-    apiMock.mockResolvedValue({ data: [task()], meta })
+  it('fetches a single task without touching the list', async () => {
+    const detail = task({ id: 5, title: 'Отдельная задача' })
+    apiMock.mockResolvedValue({ data: detail })
 
     const store = useTasksStore()
-    await store.fetchTasks({ scope: 'all' })
+    store.items = [task({ id: 1 })]
 
-    expect(apiMock).toHaveBeenCalledWith('/tasks', {
-      query: expect.objectContaining({ scope: 'all' }),
-    })
+    const result = await store.fetchTask(5)
+
+    expect(apiMock).toHaveBeenCalledWith('/tasks/5')
+    expect(result).toEqual(detail)
+    // The list the user was looking at stays exactly as it was.
+    expect(store.items.map((t) => t.id)).toEqual([1])
   })
 
   it('reports an empty list when the API returns no rows', async () => {
