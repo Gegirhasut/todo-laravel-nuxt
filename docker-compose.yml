@@ -1,0 +1,39 @@
+services:
+  backend:
+    build: ./backend
+    container_name: todo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /data/database.sqlite
+      # Origins the browser may call this API from.
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    volumes:
+      # Keeps the SQLite file across restarts.
+      - backend-db:/data
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/up') ? 0 : 1);"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    container_name: todo-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # The browser runs on the host, so it reaches the API on the published
+      # port rather than through the compose network.
+      NUXT_PUBLIC_API_BASE: http://127.0.0.1:8000/api
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-db:
