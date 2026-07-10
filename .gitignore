@@ -1,5 +1,39 @@
-# Root-level ignores; backend/ and frontend/ have their own as well.
+# Root-level ignores. backend/ and frontend/ have their own as well.
+
+# Dependencies
+/vendor
+/backend/vendor
+/node_modules
+node_modules/
+
+# Swagger UI is vendored on purpose so the API docs work offline.
+!/backend/public/vendor/
+
+# Environment — only .env.example is committed
+.env
+.env.backup
+.env.production
+.env.local
+
+# Nuxt build output
+.nuxt
+.nitro
+.output
+.cache
+dist
+
+# Laravel
+/storage/*.key
+/backend/storage/*.key
+/backend/bootstrap/cache/*.php
+
+# SQLite database
+*.sqlite
+*.sqlite-journal
+
+# Editors / OS
 .DS_Store
+Thumbs.db
 *.log
 .idea
 .vscode
