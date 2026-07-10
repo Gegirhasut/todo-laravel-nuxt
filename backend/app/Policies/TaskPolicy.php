@@ -8,9 +8,9 @@ use App\Models\User;
 class TaskPolicy
 {
     /**
-     * Reading a single task is open to any authenticated user — the list can be
-     * browsed with ?scope=all, so a task the caller does not own may well be on
-     * their screen already.
+     * Reading a single task is open to any authenticated user — the spec's
+     * endpoint table marks GET /api/tasks/{id} as "auth", reserving the
+     * owner/admin restriction for updates and deletes.
      */
     public function view(User $user, Task $task): bool
     {

@@ -16,7 +16,6 @@ class Task extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'user_id',
         'title',
         'description',
         'due_date',
@@ -51,12 +50,13 @@ class Task extends Model
         }
 
         // Escape the LIKE wildcards so a literal % or _ in the term is not
-        // treated as a pattern.
+        // treated as a pattern. The ESCAPE clause must be explicit: MySQL
+        // defaults to backslash, but SQLite and PostgreSQL do not.
         $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term).'%';
 
         return $query->where(function (Builder $q) use ($like) {
-            $q->where('title', 'like', $like)
-                ->orWhere('description', 'like', $like);
+            $q->whereRaw("title LIKE ? ESCAPE '\\'", [$like])
+                ->orWhereRaw("description LIKE ? ESCAPE '\\'", [$like]);
         });
     }
 
@@ -94,6 +94,27 @@ class Task extends Model
                 ->orderBy('id', 'desc');
         }
 
+        // Alphabetical enum values are meaningless here — order by the
+        // lifecycle instead: asc puts active work first, finished last.
+        if ($column === 'status') {
+            return $query->orderByRaw(self::statusOrderSql().' '.$dir)
+                ->orderBy('id', 'desc');
+        }
+
         return $query->orderBy($column, $dir)->orderBy('id', 'desc');
+    }
+
+    /**
+     * A portable CASE expression ranking statuses by TaskStatus::sortOrder(),
+     * so the lifecycle order lives only on the enum.
+     */
+    private static function statusOrderSql(): string
+    {
+        $whens = implode(' ', array_map(
+            fn (TaskStatus $status) => "WHEN '{$status->value}' THEN {$status->sortOrder()}",
+            TaskStatus::cases(),
+        ));
+
+        return "CASE status {$whens} ELSE ".count(TaskStatus::cases()).' END';
     }
 }

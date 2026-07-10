@@ -20,7 +20,7 @@ class UpdateTaskRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'min:3', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'due_date' => ['sometimes', 'nullable', 'date'],
+            'due_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'status' => ['sometimes', 'required', Rule::enum(TaskStatus::class)],
         ];
     }

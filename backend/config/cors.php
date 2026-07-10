@@ -18,7 +18,8 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    // Let browsers cache the preflight response for a day.
+    'max_age' => 86400,
 
     // Bearer tokens are sent in a header, so no credentialed cookies needed.
     'supports_credentials' => false,

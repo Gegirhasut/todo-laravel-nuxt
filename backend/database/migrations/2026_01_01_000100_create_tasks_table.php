@@ -19,6 +19,9 @@ return new class extends Migration
 
             $table->index('status');
             $table->index('due_date');
+            // The list is always filtered by owner (plus, often, status), and
+            // SQLite/PostgreSQL do not index the foreign key on their own.
+            $table->index(['user_id', 'status']);
         });
     }
 

@@ -140,6 +140,34 @@ class TaskTest extends TestCase
             ->assertJsonValidationErrors('due_date');
     }
 
+    public function test_due_date_must_be_a_plain_date_not_a_datetime_or_a_relative_phrase(): void
+    {
+        $user = User::factory()->create();
+
+        // Both would pass the loose `date` rule (strtotime accepts them), but
+        // the contract is a plain Y-m-d date — exactly what <input type=date> sends.
+        foreach (['2026-08-01 10:00', 'tomorrow', '2026-08'] as $value) {
+            $this->actingAs($user, 'sanctum')
+                ->postJson('/api/tasks', ['title' => 'Valid title', 'due_date' => $value])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('due_date');
+        }
+
+        $task = Task::factory()->for($user)->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson("/api/tasks/{$task->id}", ['due_date' => '2026-08-01 10:00'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('due_date');
+    }
+
+    public function test_guest_cannot_view_a_single_task(): void
+    {
+        $task = Task::factory()->create();
+
+        $this->getJson("/api/tasks/{$task->id}")->assertStatus(401);
+    }
+
     public function test_user_can_view_their_own_task(): void
     {
         $user = User::factory()->create();
@@ -151,86 +179,59 @@ class TaskTest extends TestCase
             ->assertJsonPath('data.id', $task->id);
     }
 
-    public function test_user_can_view_another_users_task_but_not_change_it(): void
+    public function test_any_authenticated_user_can_read_a_single_task_but_not_change_it(): void
     {
         $user = User::factory()->create();
         $task = Task::factory()->create(['title' => 'Чужая задача']);
 
-        // Reading is open to any authenticated user (the shared "all tasks" view)...
+        // The spec marks GET /api/tasks/{id} as plain "auth"...
         $this->actingAs($user, 'sanctum')
             ->getJson("/api/tasks/{$task->id}")
             ->assertOk()
             ->assertJsonPath('data.title', 'Чужая задача');
 
-        // ...but writing is not.
+        // ...while writes stay owner/admin only.
         $this->actingAs($user, 'sanctum')
             ->patchJson("/api/tasks/{$task->id}", ['title' => 'Перехвачено'])
             ->assertStatus(403);
     }
 
-    public function test_scope_all_lets_a_user_see_everyones_tasks(): void
+    public function test_admin_can_view_any_single_task(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $task = Task::factory()->create(['title' => 'Чужая задача']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/tasks/{$task->id}")
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Чужая задача');
+    }
+
+    public function test_a_stale_scope_parameter_is_ignored(): void
     {
         $user = User::factory()->create();
         Task::factory()->count(3)->for($user)->create();
         Task::factory()->count(2)->create(); // other owners
 
-        // Default: only their own.
-        $this->actingAs($user, 'sanctum')
-            ->getJson('/api/tasks')
-            ->assertOk()
-            ->assertJsonCount(3, 'data');
-
-        // scope=all: everyone's.
+        // The scope parameter no longer exists; a user only ever gets their own.
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/tasks?scope=all')
             ->assertOk()
-            ->assertJsonCount(5, 'data');
+            ->assertJsonCount(3, 'data');
     }
 
-    public function test_scope_mine_is_the_default(): void
-    {
-        $user = User::factory()->create();
-        Task::factory()->count(2)->for($user)->create();
-        Task::factory()->count(4)->create();
-
-        $this->actingAs($user, 'sanctum')
-            ->getJson('/api/tasks?scope=mine')
-            ->assertOk()
-            ->assertJsonCount(2, 'data');
-    }
-
-    public function test_admin_sees_everything_regardless_of_scope(): void
+    public function test_the_admin_list_exposes_the_owner_name_but_not_the_email(): void
     {
         $admin = User::factory()->admin()->create();
-        Task::factory()->count(4)->create();
-
-        $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/tasks?scope=mine')
-            ->assertOk()
-            ->assertJsonCount(4, 'data');
-    }
-
-    public function test_an_unknown_scope_returns_422(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user, 'sanctum')
-            ->getJson('/api/tasks?scope=everything')
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('scope');
-    }
-
-    public function test_scope_all_exposes_the_owner_of_each_task(): void
-    {
-        $user = User::factory()->create();
         $other = User::factory()->create(['name' => 'Второй пользователь']);
         Task::factory()->for($other)->create();
 
-        $this->actingAs($user, 'sanctum')
-            ->getJson('/api/tasks?scope=all')
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/tasks')
             ->assertOk()
             ->assertJsonPath('data.0.owner.name', 'Второй пользователь')
-            ->assertJsonPath('data.0.user_id', $other->id);
+            ->assertJsonPath('data.0.user_id', $other->id)
+            ->assertJsonMissingPath('data.0.owner.email');
     }
 
     public function test_user_can_update_their_own_task(): void
@@ -350,6 +351,30 @@ class TaskTest extends TestCase
             ->assertJsonCount(2, 'data');
     }
 
+    public function test_search_treats_like_wildcards_as_literal_characters(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->for($user)->create(['title' => 'Скидка 100% на всё', 'description' => null]);
+        Task::factory()->for($user)->create(['title' => 'Прогресс 100 процентов', 'description' => null]);
+        Task::factory()->for($user)->create(['title' => 'Переименовать under_score', 'description' => null]);
+        Task::factory()->for($user)->create(['title' => 'Просто underscore', 'description' => null]);
+
+        // '%' must match only the task that literally contains it — on SQLite
+        // this needs an explicit ESCAPE clause, or the pattern matches nothing.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?search='.urlencode('100%'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Скидка 100% на всё');
+
+        // Same for '_', which LIKE would otherwise treat as "any character".
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?search='.urlencode('under_score'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Переименовать under_score');
+    }
+
     public function test_search_does_not_leak_other_users_tasks(): void
     {
         $user = User::factory()->create();
@@ -374,6 +399,30 @@ class TaskTest extends TestCase
             ->assertJsonPath('data.0.title', 'Sooner')
             ->assertJsonPath('data.1.title', 'Later')
             ->assertJsonPath('data.2.title', 'No deadline');
+    }
+
+    public function test_sorting_by_status_ranks_the_lifecycle_not_the_alphabet(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->for($user)->create(['title' => 'Done', 'status' => 'completed']);
+        Task::factory()->for($user)->create(['title' => 'Backlog', 'status' => 'pending']);
+        Task::factory()->for($user)->create(['title' => 'Active', 'status' => 'in_progress']);
+
+        // asc: active work on top, finished at the bottom.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?sort=status&direction=asc')
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Active')
+            ->assertJsonPath('data.1.title', 'Backlog')
+            ->assertJsonPath('data.2.title', 'Done');
+
+        // desc: the exact reverse.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?sort=status&direction=desc')
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Done')
+            ->assertJsonPath('data.1.title', 'Backlog')
+            ->assertJsonPath('data.2.title', 'Active');
     }
 
     public function test_an_unknown_sort_column_returns_422(): void

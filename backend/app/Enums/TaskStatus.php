@@ -13,4 +13,18 @@ enum TaskStatus: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    /**
+     * Where the status sits in the task lifecycle, for sorting: active work
+     * first, the backlog next, finished last. This is the single place the
+     * order is defined — queries derive their CASE expression from it.
+     */
+    public function sortOrder(): int
+    {
+        return match ($this) {
+            self::InProgress => 0,
+            self::Pending => 1,
+            self::Completed => 2,
+        };
+    }
 }

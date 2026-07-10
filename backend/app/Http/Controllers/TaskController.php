@@ -15,11 +15,9 @@ class TaskController extends Controller
     /**
      * Paginated task list.
      *
-     * By default a user sees only their own tasks. With ?scope=all they get
-     * everyone's, but the ones they do not own stay read-only (see TaskPolicy).
-     * Admins always see everything.
+     * A user sees only their own tasks; admins see everyone's.
      *
-     * Supports ?search, ?status, ?scope, ?sort, ?direction, ?per_page, ?page.
+     * Supports ?search, ?status, ?sort, ?direction, ?per_page, ?page.
      */
     public function index(IndexTaskRequest $request): AnonymousResourceCollection
     {
@@ -27,7 +25,7 @@ class TaskController extends Controller
 
         $tasks = Task::query()
             ->with('user')
-            ->unless($request->wantsEveryonesTasks(), fn ($query) => $query->where('user_id', $user->id))
+            ->unless($user->isAdmin(), fn ($query) => $query->where('user_id', $user->id))
             ->search($request->query('search'))
             ->status($request->query('status'))
             ->sort($request->query('sort'), $request->query('direction'))

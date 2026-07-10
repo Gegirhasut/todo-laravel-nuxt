@@ -47,6 +47,43 @@ class AuthTest extends TestCase
             ->assertJsonPath('errors.email.0', 'Неверный email или пароль.');
     }
 
+    public function test_login_is_rate_limited_after_too_many_attempts(): void
+    {
+        User::factory()->create(['email' => 'jane@example.com']);
+
+        // Six attempts per minute are allowed; the seventh must be rejected.
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'jane@example.com',
+                'password' => 'wrong-password',
+            ])->assertStatus(422);
+        }
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'password',
+        ])->assertStatus(429);
+    }
+
+    public function test_the_login_rate_limit_is_scoped_to_the_email(): void
+    {
+        User::factory()->create(['email' => 'jane@example.com']);
+        User::factory()->create(['email' => 'john@example.com']);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'jane@example.com',
+                'password' => 'wrong-password',
+            ])->assertStatus(422);
+        }
+
+        // A different account from the same address is not locked out.
+        $this->postJson('/api/auth/login', [
+            'email' => 'john@example.com',
+            'password' => 'password',
+        ])->assertOk();
+    }
+
     public function test_login_validation_errors_return_422(): void
     {
         $this->postJson('/api/auth/login', [])

@@ -21,10 +21,10 @@ class TaskResource extends JsonResource
             'status' => $this->status->value,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            // Deliberately no email: the UI only ever shows the owner's name.
             'owner' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'email' => $this->user->email,
             ]),
         ];
     }

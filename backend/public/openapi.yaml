@@ -87,6 +87,14 @@ paths:
                 message: Неверный email или пароль.
                 errors:
                   email: ["Неверный email или пароль."]
+        "429":
+          description: Слишком много попыток входа — не более 6 в минуту.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Too Many Attempts.
 
   /api/auth/logout:
     post:
@@ -126,9 +134,8 @@ paths:
       tags: [Tasks]
       summary: Список задач
       description: |
-        По умолчанию обычный пользователь видит только свои задачи. С
-        `?scope=all` он видит задачи всех, но чужие доступны только для чтения.
-        Администратор всегда видит все задачи.
+        Обычный пользователь видит только свои задачи, администратор — задачи
+        всех пользователей.
 
         Поддерживаются поиск, фильтр по статусу, сортировка по разрешённым
         колонкам и пагинация.
@@ -145,15 +152,6 @@ paths:
           description: Фильтр по статусу.
           schema:
             $ref: "#/components/schemas/TaskStatus"
-        - name: scope
-          in: query
-          description: |
-            `mine` — только свои задачи (по умолчанию), `all` — задачи всех
-            пользователей. Для администратора параметр ничего не меняет.
-          schema:
-            type: string
-            enum: [mine, all]
-            default: mine
         - name: sort
           in: query
           description: Колонка сортировки. Задачи без срока всегда в конце.
@@ -353,7 +351,9 @@ components:
 
     TaskOwner:
       type: object
-      description: Присутствует, если владелец задачи был загружен.
+      description: |
+        Присутствует, если владелец задачи был загружен. Email владельца
+        намеренно не отдаётся.
       properties:
         id:
           type: integer
@@ -361,10 +361,6 @@ components:
         name:
           type: string
           example: Обычный пользователь
-        email:
-          type: string
-          format: email
-          example: user@example.com
 
     Task:
       type: object

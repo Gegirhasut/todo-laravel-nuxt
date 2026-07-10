@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => env('SANCTUM_TOKEN_EXPIRATION'),
+    // Defaults to 7 days, matching the SPA's auth cookie lifetime.
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 10080),
 
     /*
     |--------------------------------------------------------------------------
