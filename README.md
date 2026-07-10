@@ -1,56 +1,58 @@
-# To-Do List — Laravel API + Nuxt SPA
+# Список задач — Laravel API + Nuxt SPA
 
-A small task manager built on a decoupled SPA/API stack.
+Небольшой менеджер задач на классическом SPA/API-стеке.
 
-- **Backend** — Laravel 12 REST API (PHP 8.2+): Eloquent, migrations, seeders, Form Request validation, policies, Sanctum token auth, PHPUnit unit + feature tests, OpenAPI docs.
-- **Frontend** — Nuxt 3 SPA (Vue 3, Composition API): Pinia stores, route middleware, an API plugin/composable, client-side validation, Vitest tests.
-- **Database** — SQLite by default; MySQL/PostgreSQL work by changing `.env`.
+- **Backend** — REST API на Laravel 12 (PHP 8.2+): Eloquent, миграции, сиды, валидация через Form Request, политики доступа, авторизация по токенам Sanctum, unit- и feature-тесты на PHPUnit, документация OpenAPI.
+- **Frontend** — SPA на Nuxt 3 (Vue 3, Composition API): сторы Pinia, middleware маршрутов, плагин/composable для работы с API, клиентская валидация, тесты на Vitest.
+- **База данных** — SQLite по умолчанию; MySQL и PostgreSQL подключаются через `.env`.
 
 ```
 .
-├── backend/            # Laravel 12 API
-├── frontend/           # Nuxt 3 SPA
-├── docker-compose.yml  # one-command run
+├── backend/            # API на Laravel 12
+├── frontend/           # SPA на Nuxt 3
+├── docker-compose.yml  # запуск одной командой
 └── README.md
 ```
 
-### Why Laravel 12
+### Почему Laravel 12
 
-Laravel 12 is the newest stable release that supports PHP 8.2, which is what this project targets (`php -v` → 8.2). Laravel 13 requires PHP 8.3+, so 12 is the correct current choice here. Nuxt is pinned to 3.20.2 — the app is an SPA (`ssr: false`), and 3.21 has a regression that breaks the dev server in that mode.
+Laravel 12 — последняя стабильная версия, которая поддерживает PHP 8.2, а именно на него ориентирован проект (`php -v` → 8.2). Laravel 13 требует PHP 8.3+, поэтому здесь корректный выбор — 12.
 
----
-
-## Auth approach — Sanctum bearer tokens (stateless)
-
-I went with **Laravel Sanctum in API-token mode** rather than its cookie/session (SPA) mode.
-
-**Why:** the Nuxt app runs on a different origin (`:3000`) from the API (`:8000`). Cookie-based Sanctum needs same-site cookies, a CSRF round trip, and matching `stateful_domains` / `SESSION_DOMAIN` settings — brittle across origins and inside Docker. A stateless bearer token is origin-agnostic and a natural fit for a decoupled SPA.
-
-**How it works:**
-
-1. `POST /api/auth/login` checks the credentials and returns a plain-text token from `createToken()`.
-2. The SPA stores it in an `auth_token` cookie (via `useCookie`), so a page reload keeps the session.
-3. Every request sends `Authorization: Bearer <token>` — see `frontend/plugins/api.ts`.
-4. Protected routes sit behind the `auth:sanctum` guard. Any `401` clears the token client-side and redirects to `/login`.
-5. `POST /api/auth/logout` revokes **only** the token that made the request, so other devices stay signed in.
+Nuxt зафиксирован на версии 3.20.2: приложение работает как SPA (`ssr: false`), а в 3.21 есть регрессия, из-за которой dev-сервер в этом режиме не запускается.
 
 ---
 
-## Quick start
+## Выбранный подход к авторизации — Bearer-токены Sanctum
 
-### Option A — Docker
+Используется **Laravel Sanctum в режиме API-токенов**, а не cookie-сессия (SPA-режим).
+
+**Почему:** приложение на Nuxt работает на другом origin (`:3000`), чем API (`:8000`). Для cookie-режима нужны same-site cookies, отдельный запрос за CSRF-токеном и согласованные настройки `stateful_domains` / `SESSION_DOMAIN` — всё это хрупко при разных origin и внутри Docker. Stateless bearer-токен не зависит от origin и естественно ложится на decoupled SPA.
+
+**Как это работает:**
+
+1. `POST /api/auth/login` проверяет учётные данные и возвращает токен, созданный через `createToken()`.
+2. SPA сохраняет его в cookie `auth_token` (через `useCookie`), поэтому сессия переживает перезагрузку страницы.
+3. Каждый запрос уходит с заголовком `Authorization: Bearer <token>` — см. `frontend/plugins/api.ts`.
+4. Защищённые маршруты закрыты guard'ом `auth:sanctum`. Любой `401` очищает токен на клиенте и отправляет на `/login`.
+5. `POST /api/auth/logout` отзывает **только** тот токен, которым сделан запрос, — на других устройствах вход сохраняется.
+
+---
+
+## Быстрый старт
+
+### Вариант A — Docker
 
 ```bash
 docker compose up --build
 ```
 
-- App → http://localhost:3000
+- Приложение → http://localhost:3000
 - API → http://127.0.0.1:8000
-- API docs → http://127.0.0.1:8000/docs
+- Документация API → http://127.0.0.1:8000/docs
 
-The backend container copies `.env`, generates the app key, then migrates and seeds on start.
+Контейнер бэкенда сам создаёт `.env`, генерирует ключ приложения, накатывает миграции и сиды при старте.
 
-### Option B — Run it locally
+### Вариант B — локальный запуск
 
 **Backend**
 
@@ -60,13 +62,13 @@ cp .env.example .env
 composer install
 php artisan key:generate
 
-touch database/database.sqlite     # SQLite is the default
+touch database/database.sqlite     # по умолчанию используется SQLite
 php artisan migrate --seed
 
 php artisan serve                  # http://127.0.0.1:8000
 ```
 
-**Frontend** (second terminal)
+**Frontend** (во втором терминале)
 
 ```bash
 cd frontend
@@ -75,92 +77,102 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-Then open http://localhost:3000 and sign in with one of the accounts below.
+Откройте http://localhost:3000 и войдите под одним из аккаунтов ниже.
 
-> **Note on `127.0.0.1` vs `localhost`.** `php artisan serve` binds IPv4 only. Some Linux setups resolve `localhost` to `::1` first, and the browser then stalls on every API call. Using `127.0.0.1` for the API base sidesteps that; `http://localhost:8000/api` is fine on machines where that is not an issue.
+> **О `127.0.0.1` вместо `localhost`.** `php artisan serve` слушает только IPv4. На некоторых Linux-системах браузер сначала резолвит `localhost` в `::1`, и тогда каждый запрос к API зависает. Указание `127.0.0.1` в адресе API решает проблему; там, где её нет, `http://localhost:8000/api` тоже работает.
 
-> Prefer MySQL or PostgreSQL? Set `DB_CONNECTION` and the `DB_*` values in `backend/.env`, then run `php artisan migrate --seed`. The same migrations run on all three.
-
----
-
-## Test accounts (seeded)
-
-| Role  | Email               | Password   | Sees                 |
-| ----- | ------------------- | ---------- | -------------------- |
-| Admin | `admin@example.com` | `password` | **All** users' tasks |
-| User  | `user@example.com`  | `password` | Only their own tasks |
-
-There is a third account (`second@example.com` / `password`) with a few tasks of its own, so the admin view visibly contains more than one owner.
+> Нужен MySQL или PostgreSQL? Задайте `DB_CONNECTION` и значения `DB_*` в `backend/.env` и выполните `php artisan migrate --seed`. Миграции одинаково работают на всех трёх СУБД.
 
 ---
 
-## API documentation
+## Тестовые аккаунты (создаются сидом)
 
-A real OpenAPI 3.0 spec lives at `backend/public/openapi.yaml`, and Swagger UI is served from the API itself:
+| Роль          | Email                | Пароль     | Что видит и может                                        |
+| ------------- | -------------------- | ---------- | -------------------------------------------------------- |
+| Администратор | `admin@example.com`  | `password` | **Все** задачи, редактирует и удаляет любую              |
+| Пользователь  | `user@example.com`   | `password` | Свои задачи; через «Все задачи» — чужие, только для чтения |
+| Пользователь  | `second@example.com` | `password` | То же самое, но со своим набором задач                   |
 
-- **http://127.0.0.1:8000/docs** — browse the endpoints, click **Authorize**, paste a token from `POST /api/auth/login`, and call the API straight from the page.
+У всех трёх аккаунтов есть свои задачи, поэтому режим «Все задачи» и правила доступа видно сразу.
 
-Swagger UI is vendored under `backend/public/vendor/swagger-ui`, so the docs work offline.
+### Права на задачи
 
-### Endpoints
+- **Редактировать и удалять** задачу может только её владелец. Администратор — исключение, он может всё.
+- **Читать** задачи может любой авторизованный пользователь: по умолчанию список показывает только свои задачи, а переключатель «Все задачи» (`?scope=all`) показывает задачи всех.
+- У чужих задач в списке кнопки «Изменить» и «Удалить» просто не отображаются, а сам API на такие запросы отвечает `403`. Свои задачи в общем списке помечены значком «Моя».
 
-Base URL `/api`. Everything returns JSON.
+---
 
-| Method    | Endpoint       | Access      | Purpose                               |
-| --------- | -------------- | ----------- | ------------------------------------- |
-| POST      | `/auth/login`  | public      | Authenticate, returns `{token, user}` |
-| POST      | `/auth/logout` | auth        | Revoke the current token              |
-| GET       | `/user`        | auth        | The current user                      |
-| GET       | `/tasks`       | auth        | List: search, filter, sort, paginate  |
-| POST      | `/tasks`       | auth        | Create a task                         |
-| GET       | `/tasks/{id}`  | owner/admin | Fetch one task                        |
-| PUT/PATCH | `/tasks/{id}`  | owner/admin | Update a task                         |
-| DELETE    | `/tasks/{id}`  | owner/admin | Delete a task                         |
+## Документация API
 
-`GET /tasks` query parameters:
+Спецификация OpenAPI 3.0 лежит в `backend/public/openapi.yaml`, а Swagger UI отдаётся самим API:
 
-| Param       | Values                                            | Default      |
+- **http://127.0.0.1:8000/docs** — просмотреть эндпоинты, нажать **Authorize**, вставить токен из `POST /api/auth/login` и дёрнуть API прямо со страницы.
+
+Swagger UI лежит рядом, в `backend/public/vendor/swagger-ui`, поэтому документация открывается и без интернета.
+
+### Эндпоинты
+
+Базовый URL — `/api`. Все ответы в JSON.
+
+| Метод     | Эндпоинт       | Доступ           | Назначение                                 |
+| --------- | -------------- | ---------------- | ------------------------------------------ |
+| POST      | `/auth/login`  | публичный        | Авторизация, возвращает `{token, user}`    |
+| POST      | `/auth/logout` | авторизованный   | Отзыв текущего токена                      |
+| GET       | `/user`        | авторизованный   | Текущий пользователь                       |
+| GET       | `/tasks`       | авторизованный   | Список: поиск, фильтр, сортировка, страницы |
+| POST      | `/tasks`       | авторизованный   | Создание задачи                            |
+| GET       | `/tasks/{id}`  | авторизованный   | Одна задача                                |
+| PUT/PATCH | `/tasks/{id}`  | владелец / админ | Редактирование задачи                      |
+| DELETE    | `/tasks/{id}`  | владелец / админ | Удаление задачи                            |
+
+Параметры запроса `GET /tasks`:
+
+| Параметр    | Значения                                          | По умолчанию |
 | ----------- | ------------------------------------------------- | ------------ |
-| `search`    | string, matched against title and description      | —            |
+| `search`    | строка, ищется по названию и описанию             | —            |
 | `status`    | `pending` \| `in_progress` \| `completed`         | —            |
+| `scope`     | `mine` \| `all` — свои задачи или задачи всех     | `mine`       |
 | `sort`      | `due_date` \| `status` \| `title` \| `created_at` | `created_at` |
 | `direction` | `asc` \| `desc`                                   | `desc`       |
 | `per_page`  | 1–100                                             | `10`         |
-| `page`      | integer                                           | `1`          |
+| `page`      | целое число                                       | `1`          |
 
-Anything outside those values is a `422` rather than a silently ignored filter.
+Значение вне списка — это `422`, а не молча проигнорированный фильтр.
 
-### Task model
+### Модель задачи
 
-| Field                     | Type         | Notes                                     |
-| ------------------------- | ------------ | ----------------------------------------- |
-| `id`                      | integer      | Primary key                               |
-| `user_id`                 | integer      | Owner, taken from the authenticated user  |
-| `title`                   | string       | Required, 3–255 characters                |
-| `description`             | text \| null | Optional                                  |
-| `due_date`                | date \| null | Optional                                  |
-| `status`                  | enum         | `pending` \| `in_progress` \| `completed` |
-| `created_at`/`updated_at` | datetime     | Timestamps                                |
+| Поле                      | Тип          | Примечание                                 |
+| ------------------------- | ------------ | ------------------------------------------ |
+| `id`                      | integer      | Первичный ключ                             |
+| `user_id`                 | integer      | Владелец, берётся из авторизованного пользователя |
+| `title`                   | string       | Обязательное, 3–255 символов               |
+| `description`             | text \| null | Необязательное                             |
+| `due_date`                | date \| null | Необязательное                             |
+| `status`                  | enum         | `pending` \| `in_progress` \| `completed`  |
+| `created_at`/`updated_at` | datetime     | Даты создания и изменения                  |
 
-### Error format
+### Формат ошибок
 
-Every failure has the same shape — a `message`, plus an `errors` map on validation failures:
+У любой ошибки одна и та же форма — `message`, плюс `errors` при ошибках валидации:
 
 ```json
-{ "message": "The title field is required.", "errors": { "title": ["The title field is required."] } }
+{ "message": "Поле название обязательно для заполнения.", "errors": { "title": ["Поле название обязательно для заполнения."] } }
 ```
 
-| Status | When                                     |
-| ------ | ---------------------------------------- |
-| 401    | Missing, invalid or expired token        |
-| 403    | Authenticated, but not the owner nor admin |
-| 404    | The task does not exist                  |
-| 422    | Validation failed (`errors` is populated) |
-| 500    | Unexpected server error                  |
+| Код | Когда                                            |
+| --- | ------------------------------------------------ |
+| 401 | Токен отсутствует, недействителен или истёк      |
+| 403 | Авторизован, но не владелец задачи и не админ    |
+| 404 | Задача не найдена                                |
+| 422 | Ошибка валидации (заполнено поле `errors`)       |
+| 500 | Непредвиденная ошибка сервера                    |
 
-It is defined in one place: `backend/app/Exceptions/ApiExceptionHandler.php`.
+Формат задан в одном месте: `backend/app/Exceptions/ApiExceptionHandler.php`.
 
-### Example
+Язык ответов задаётся через `APP_LOCALE` (по умолчанию `ru`, запасной — `en`). Тексты лежат в `backend/lang/{ru,en}/`.
+
+### Пример
 
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/auth/login \
@@ -173,53 +185,55 @@ curl -s "http://127.0.0.1:8000/api/tasks?status=pending&sort=due_date&direction=
 
 ---
 
-## What's implemented
+## Что реализовано
 
 **Backend**
 
-- `Task` model with query scopes for search, status filtering and whitelisted sorting (tasks without a deadline always sort last).
-- `IndexTaskRequest` / `StoreTaskRequest` / `UpdateTaskRequest` Form Requests. The update request is PATCH-friendly: every field optional, validated when present.
-- `TaskPolicy` limits view/update/delete to the owner; admins may act on any task. A task's owner always comes from the authenticated user, never from the request body.
-- API Resources (`TaskResource`, `UserResource`) shape the output.
-- A `role` column (`user` / `admin`) drives both the list scope and authorization.
-- One exception handler for the whole JSON error contract.
+- Модель `Task` со скоупами для поиска, фильтра по статусу и сортировки по белому списку колонок (задачи без срока всегда в конце).
+- Form Request'ы `IndexTaskRequest` / `StoreTaskRequest` / `UpdateTaskRequest`. Запрос на обновление рассчитан на PATCH: все поля необязательны, но проверяются, если переданы.
+- `TaskPolicy` разрешает изменение и удаление только владельцу; админ может всё. Чтение открыто любому авторизованному пользователю. Владелец задачи всегда берётся из авторизованного пользователя, а не из тела запроса.
+- Параметр `?scope=all` в списке задач переключает выборку со «своих» на «все».
+- API Resources (`TaskResource`, `UserResource`) формируют ответ.
+- Колонка `role` (`user` / `admin`) управляет и выборкой списка, и правами.
+- Единый обработчик исключений на весь JSON-контракт ошибок.
 
 **Frontend**
 
-- Login page with error handling; `auth` / `guest` route middleware; a `401` anywhere clears the session and redirects to `/login`.
-- Task list with sorting (due date, status, title, created), status filter, and a **debounced search kept in sync with the URL query** — so a filtered list is shareable, bookmarkable and survives a refresh.
-- Create/edit in a modal, delete behind a confirmation — no page reloads.
-- Loading, API-error (with retry) and empty-list states, kept distinct from one another.
-- Client-side validation mirrors the backend rules; the backend's `422` field errors are mapped back onto the form.
-- Edit/Delete buttons are hidden when the user has no permission for that action.
-- Pagination on both ends.
+- Страница входа с обработкой ошибок; middleware `auth` / `guest`; любой `401` очищает сессию и ведёт на `/login`.
+- Список задач с сортировкой (срок, статус, название, дата), фильтром по статусу и **поиском с debounce, синхронизированным с query-параметрами URL** — ссылку на отфильтрованный список можно отправить, сохранить в закладки, она переживает перезагрузку.
+- Создание и редактирование в модальном окне, удаление через подтверждение — без перезагрузок страницы.
+- После создания, изменения или удаления список обновляется на месте: строки не исчезают, показывается индикатор «Обновление…», а сверху всплывает уведомление об успехе. Только что созданная задача коротко подсвечивается.
+- Состояния загрузки, ошибки API (с кнопкой «Повторить») и пустого списка — не путаются между собой.
+- Клиентская валидация повторяет правила бэкенда; ошибки `422` с сервера раскладываются обратно по полям формы.
+- Переключатель «Мои задачи» / «Все задачи» для обычного пользователя, тоже синхронизированный с URL. Кнопки «Изменить» и «Удалить» скрыты у чужих задач, свои помечены значком «Моя».
+- Пагинация с обеих сторон.
 
 ---
 
-## Tests
+## Тесты
 
-**Backend** — PHPUnit. Unit tests cover the policy and the status enum; feature tests cover the auth flow, CRUD, ownership and admin authorization, validation, the error contract, search, filtering, sorting and pagination.
+**Backend** — PHPUnit. Unit-тесты покрывают политику доступа и enum статусов; feature-тесты — авторизацию, CRUD, права владельца и админа, валидацию, контракт ошибок, поиск, фильтрацию, сортировку и пагинацию.
 
 ```bash
 cd backend
 php artisan test
 ```
 
-**Frontend** — Vitest, running in the Nuxt environment.
+**Frontend** — Vitest в окружении Nuxt.
 
 ```bash
 cd frontend
-npm run test        # unit tests + component/store tests
+npm run test        # unit-тесты + тесты компонентов и сторов
 npm run typecheck   # vue-tsc
 ```
 
-The frontend tests cover the critical paths: the login store (success, wrong credentials, error fallback), the tasks store (loading, empty, error, update-in-place, delete), the permission rules that hide Edit/Delete, and the form validation helpers.
+Фронтовые тесты покрывают критичные сценарии: стор авторизации (успех, неверные данные, запасное сообщение об ошибке), стор задач (загрузка, пустой список, ошибка, тихое обновление, обновление на месте, удаление), уведомления, правила скрытия кнопок «Изменить»/«Удалить» и хелперы валидации формы.
 
 ---
 
-## Notes
+## Заметки
 
-- Laravel 12 slim skeleton: middleware and exceptions are configured in `bootstrap/app.php`.
-- CORS origins are env-driven (`CORS_ALLOWED_ORIGINS`); Sanctum's token lifetime is `SANCTUM_TOKEN_EXPIRATION` (empty = never expires).
-- SQLite was chosen so the project runs with no database server to install.
-- `php artisan serve` uses PHP's single-threaded dev server. If requests ever appear to stall, `php artisan serve --no-reload` with `PHP_CLI_SERVER_WORKERS=4` gives it a few workers.
+- Slim-скелет Laravel 12: middleware и обработка исключений настраиваются в `bootstrap/app.php`.
+- Origin'ы для CORS задаются переменной `CORS_ALLOWED_ORIGINS`; время жизни токена Sanctum — `SANCTUM_TOKEN_EXPIRATION` (пусто = бессрочно).
+- SQLite выбран, чтобы проект запускался без установки СУБД.
+- `php artisan serve` поднимает однопоточный dev-сервер PHP. Если запросы начнут подвисать, помогает `php artisan serve --no-reload` вместе с `PHP_CLI_SERVER_WORKERS=4`.

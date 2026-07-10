@@ -1,51 +1,51 @@
 openapi: 3.0.3
 
 info:
-  title: To-Do API
+  title: API списка задач
   version: "1.0.0"
   description: |
-    REST API for the To-Do application.
+    REST API приложения «Список задач».
 
-    ## Authentication
+    ## Авторизация
 
-    Authentication uses **Laravel Sanctum bearer tokens**. Call
-    `POST /api/auth/login` with the seeded credentials, then send the returned
-    token on every other request:
+    Используются **bearer-токены Laravel Sanctum**. Вызовите
+    `POST /api/auth/login` с тестовыми учётными данными и отправляйте
+    полученный токен во всех остальных запросах:
 
     ```
     Authorization: Bearer <token>
     ```
 
-    In this page you can click **Authorize** and paste the token to try the
-    endpoints out directly.
+    На этой странице можно нажать **Authorize**, вставить токен и сразу
+    попробовать эндпоинты.
 
-    ## Seeded accounts
+    ## Тестовые аккаунты
 
-    | Role  | Email               | Password   |
+    | Роль  | Email               | Пароль     |
     | ----- | ------------------- | ---------- |
     | admin | `admin@example.com` | `password` |
     | user  | `user@example.com`  | `password` |
 
-    ## Errors
+    ## Ошибки
 
-    Every failure returns the same JSON shape: a `message`, plus an `errors`
-    map on validation failures (422).
+    Любая ошибка возвращается в одном формате: поле `message`, а при ошибках
+    валидации (422) — ещё и словарь `errors`.
 
 servers:
   - url: http://localhost:8000
-    description: Local development server
+    description: Локальный сервер разработки
 
 tags:
   - name: Auth
-    description: Login, logout and the current user.
+    description: Вход, выход и текущий пользователь.
   - name: Tasks
-    description: Task CRUD, search, filtering, sorting and pagination.
+    description: CRUD задач, поиск, фильтрация, сортировка и пагинация.
 
 paths:
   /api/auth/login:
     post:
       tags: [Auth]
-      summary: Log in and receive a bearer token
+      summary: Войти и получить bearer-токен
       security: []
       requestBody:
         required: true
@@ -65,7 +65,7 @@ paths:
                   example: password
       responses:
         "200":
-          description: Authenticated.
+          description: Успешная авторизация.
           content:
             application/json:
               schema:
@@ -73,44 +73,44 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: Plain-text Sanctum token. Store it and send it as a bearer token.
+                    description: Токен Sanctum в открытом виде. Сохраните его и отправляйте как bearer-токен.
                     example: 3|Kj8xQ2mB7nP1sR4tV6wY9zA0cD5eF8gH2iJ3kL4m
                   user:
                     $ref: "#/components/schemas/User"
         "422":
-          description: Missing fields, or the credentials did not match.
+          description: Не заполнены поля или неверные учётные данные.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationError"
               example:
-                message: The provided credentials are incorrect.
+                message: Неверный email или пароль.
                 errors:
-                  email: ["The provided credentials are incorrect."]
+                  email: ["Неверный email или пароль."]
 
   /api/auth/logout:
     post:
       tags: [Auth]
-      summary: Revoke the token used for this request
+      summary: Отозвать токен текущего запроса
       responses:
         "200":
-          description: The token was revoked. Other tokens of the same user stay valid.
+          description: Токен отозван. Остальные токены пользователя продолжают работать.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Message"
               example:
-                message: Logged out.
+                message: Вы вышли из системы.
         "401":
           $ref: "#/components/responses/Unauthenticated"
 
   /api/user:
     get:
       tags: [Auth]
-      summary: The currently authenticated user
+      summary: Текущий авторизованный пользователь
       responses:
         "200":
-          description: The current user.
+          description: Текущий пользователь.
           content:
             application/json:
               schema:
@@ -124,26 +124,39 @@ paths:
   /api/tasks:
     get:
       tags: [Tasks]
-      summary: List tasks
+      summary: Список задач
       description: |
-        Regular users see only their own tasks; admins see everyone's.
-        Supports search, status filtering, whitelisted sorting and pagination.
+        По умолчанию обычный пользователь видит только свои задачи. С
+        `?scope=all` он видит задачи всех, но чужие доступны только для чтения.
+        Администратор всегда видит все задачи.
+
+        Поддерживаются поиск, фильтр по статусу, сортировка по разрешённым
+        колонкам и пагинация.
       parameters:
         - name: search
           in: query
-          description: Free-text match against the title and the description.
+          description: Поиск по названию и описанию.
           schema:
             type: string
             maxLength: 255
-          example: milk
+          example: молоко
         - name: status
           in: query
-          description: Filter by status.
+          description: Фильтр по статусу.
           schema:
             $ref: "#/components/schemas/TaskStatus"
+        - name: scope
+          in: query
+          description: |
+            `mine` — только свои задачи (по умолчанию), `all` — задачи всех
+            пользователей. Для администратора параметр ничего не меняет.
+          schema:
+            type: string
+            enum: [mine, all]
+            default: mine
         - name: sort
           in: query
-          description: Column to sort by. Tasks without a due date always sort last.
+          description: Колонка сортировки. Задачи без срока всегда в конце.
           schema:
             type: string
             enum: [due_date, status, title, created_at]
@@ -169,7 +182,7 @@ paths:
             default: 1
       responses:
         "200":
-          description: A page of tasks.
+          description: Страница списка задач.
           content:
             application/json:
               schema:
@@ -181,8 +194,8 @@ paths:
 
     post:
       tags: [Tasks]
-      summary: Create a task
-      description: The task is always owned by the authenticated user.
+      summary: Создать задачу
+      description: Владельцем задачи всегда становится авторизованный пользователь.
       requestBody:
         required: true
         content:
@@ -191,7 +204,7 @@ paths:
               $ref: "#/components/schemas/StoreTaskRequest"
       responses:
         "201":
-          description: The created task.
+          description: Созданная задача.
           content:
             application/json:
               schema:
@@ -207,26 +220,24 @@ paths:
 
     get:
       tags: [Tasks]
-      summary: Fetch a single task
-      description: Allowed for the owner of the task and for admins.
+      summary: Получить одну задачу
+      description: Доступно любому авторизованному пользователю.
       responses:
         "200":
-          description: The task.
+          description: Задача.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TaskEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
     put:
       tags: [Tasks]
-      summary: Replace a task
-      description: Allowed for the owner of the task and for admins.
+      summary: Заменить задачу
+      description: Доступно владельцу задачи и администратору.
       requestBody:
         required: true
         content:
@@ -235,7 +246,7 @@ paths:
               $ref: "#/components/schemas/StoreTaskRequest"
       responses:
         "200":
-          description: The updated task.
+          description: Обновлённая задача.
           content:
             application/json:
               schema:
@@ -251,10 +262,10 @@ paths:
 
     patch:
       tags: [Tasks]
-      summary: Update part of a task
+      summary: Частично обновить задачу
       description: |
-        Allowed for the owner of the task and for admins. Every field is
-        optional, but it is validated when present.
+        Доступно владельцу задачи и администратору. Все поля необязательны,
+        но проверяются, если переданы.
       requestBody:
         required: true
         content:
@@ -263,7 +274,7 @@ paths:
               $ref: "#/components/schemas/UpdateTaskRequest"
       responses:
         "200":
-          description: The updated task.
+          description: Обновлённая задача.
           content:
             application/json:
               schema:
@@ -279,17 +290,17 @@ paths:
 
     delete:
       tags: [Tasks]
-      summary: Delete a task
-      description: Allowed for the owner of the task and for admins.
+      summary: Удалить задачу
+      description: Доступно владельцу задачи и администратору.
       responses:
         "200":
-          description: The task was deleted.
+          description: Задача удалена.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Message"
               example:
-                message: Task deleted.
+                message: Задача удалена.
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -302,14 +313,14 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: The plain-text token returned by `POST /api/auth/login`.
+      description: Токен в открытом виде, полученный из `POST /api/auth/login`.
 
   parameters:
     TaskId:
       name: id
       in: path
       required: true
-      description: Task identifier.
+      description: Идентификатор задачи.
       schema:
         type: integer
         format: int64
@@ -330,7 +341,7 @@ components:
           example: 2
         name:
           type: string
-          example: Regular User
+          example: Обычный пользователь
         email:
           type: string
           format: email
@@ -342,14 +353,14 @@ components:
 
     TaskOwner:
       type: object
-      description: Present when the task's owner has been loaded.
+      description: Присутствует, если владелец задачи был загружен.
       properties:
         id:
           type: integer
           example: 2
         name:
           type: string
-          example: Regular User
+          example: Обычный пользователь
         email:
           type: string
           format: email
@@ -363,17 +374,17 @@ components:
           example: 1
         user_id:
           type: integer
-          description: The owner of the task.
+          description: Владелец задачи.
           example: 2
         title:
           type: string
           minLength: 3
           maxLength: 255
-          example: Buy milk
+          example: Купить молоко
         description:
           type: string
           nullable: true
-          example: Whole milk, two litres.
+          example: Цельное молоко, два литра.
         due_date:
           type: string
           format: date
@@ -458,11 +469,11 @@ components:
           type: string
           minLength: 3
           maxLength: 255
-          example: Buy milk
+          example: Купить молоко
         description:
           type: string
           nullable: true
-          example: Whole milk, two litres.
+          example: Цельное молоко, два литра.
         due_date:
           type: string
           format: date
@@ -471,17 +482,17 @@ components:
         status:
           allOf:
             - $ref: "#/components/schemas/TaskStatus"
-          description: Defaults to `pending` when omitted.
+          description: Если не передан, используется `pending`.
 
     UpdateTaskRequest:
       type: object
-      description: Send only the fields you want to change.
+      description: Передавайте только те поля, которые нужно изменить.
       properties:
         title:
           type: string
           minLength: 3
           maxLength: 255
-          example: Buy oat milk
+          example: Купить овсяное молоко
         description:
           type: string
           nullable: true
@@ -503,14 +514,14 @@ components:
       properties:
         message:
           type: string
-          example: Resource not found.
+          example: Ресурс не найден.
 
     ValidationError:
       type: object
       properties:
         message:
           type: string
-          example: The title field is required.
+          example: Поле название обязательно для заполнения.
         errors:
           type: object
           additionalProperties:
@@ -518,51 +529,51 @@ components:
             items:
               type: string
           example:
-            title: ["The title field is required."]
+            title: ["Поле название обязательно для заполнения."]
 
   responses:
     Unauthenticated:
-      description: No token was sent, or the token is invalid or expired.
+      description: Токен не передан, недействителен или истёк.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            message: Unauthenticated.
+            message: Требуется авторизация.
 
     Forbidden:
-      description: Authenticated, but not the owner of the task (and not an admin).
+      description: Пользователь авторизован, но не является владельцем задачи и не администратор.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            message: This action is unauthorized.
+            message: Недостаточно прав для выполнения этого действия.
 
     NotFound:
-      description: The task does not exist.
+      description: Задача не найдена.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            message: Resource not found.
+            message: Ресурс не найден.
 
     ValidationFailed:
-      description: The payload or the query string failed validation.
+      description: Тело запроса или query-параметры не прошли валидацию.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ValidationError"
 
     ServerError:
-      description: Unexpected server error.
+      description: Непредвиденная ошибка сервера.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            message: Server error.
+            message: Ошибка сервера.
 
 security:
   - bearerAuth: []
