@@ -9,8 +9,17 @@ export const useTasksStore = defineStore('tasks', () => {
 
   const isEmpty = computed(() => !loading.value && !error.value && items.value.length === 0)
 
-  async function fetchTasks(query: TaskQuery = {}): Promise<void> {
-    loading.value = true
+  interface FetchOptions {
+    /**
+     * Refresh the rows underneath the user without emptying the list first.
+     * Used after a create/update/delete, where blanking the list and flashing
+     * a spinner would look like a full page reload.
+     */
+    silent?: boolean
+  }
+
+  async function fetchTasks(query: TaskQuery = {}, { silent = false }: FetchOptions = {}): Promise<void> {
+    if (!silent) loading.value = true
     error.value = null
 
     try {
@@ -29,9 +38,14 @@ export const useTasksStore = defineStore('tasks', () => {
       items.value = res.data
       meta.value = res.meta
     } catch (e) {
-      error.value = apiErrorMessage(e, 'Failed to load tasks.')
-      items.value = []
-      meta.value = null
+      // A silent refresh runs after a write that already succeeded and was
+      // applied locally, so a failed re-sync must not wipe the list or throw
+      // the user into the error state.
+      if (!silent) {
+        error.value = apiErrorMessage(e, 'Failed to load tasks.')
+        items.value = []
+        meta.value = null
+      }
     } finally {
       loading.value = false
     }

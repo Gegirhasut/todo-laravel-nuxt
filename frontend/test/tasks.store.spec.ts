@@ -77,6 +77,50 @@ describe('tasks store', () => {
     expect(store.isEmpty).toBe(false)
   })
 
+  it('a silent refresh never blanks the list, so the UI does not flash a spinner', async () => {
+    const store = useTasksStore()
+    store.items = [task()]
+
+    let loadingWhileFetching: boolean | undefined
+    apiMock.mockImplementation(async () => {
+      loadingWhileFetching = store.loading
+      return { data: [task({ status: 'completed' })], meta }
+    })
+
+    await store.fetchTasks({}, { silent: true })
+
+    expect(loadingWhileFetching).toBe(false)
+    expect(store.items[0]!.status).toBe('completed')
+  })
+
+  it('a normal fetch does show the loading state', async () => {
+    const store = useTasksStore()
+
+    let loadingWhileFetching: boolean | undefined
+    apiMock.mockImplementation(async () => {
+      loadingWhileFetching = store.loading
+      return { data: [task()], meta }
+    })
+
+    await store.fetchTasks()
+
+    expect(loadingWhileFetching).toBe(true)
+    expect(store.loading).toBe(false)
+  })
+
+  it('a failed silent refresh keeps the rows that are already on screen', async () => {
+    apiMock.mockRejectedValue(Object.assign(new Error('boom'), { data: { message: 'Server error.' } }))
+
+    const store = useTasksStore()
+    store.items = [task()]
+
+    await store.fetchTasks({}, { silent: true })
+
+    // The write it followed already succeeded, so nothing should be torn down.
+    expect(store.items).toHaveLength(1)
+    expect(store.error).toBeNull()
+  })
+
   it('replaces the updated task in place', async () => {
     const updated = task({ status: 'completed' })
     apiMock.mockResolvedValue({ data: updated })

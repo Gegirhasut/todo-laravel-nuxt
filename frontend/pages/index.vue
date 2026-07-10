@@ -202,6 +202,15 @@ function reload() {
   store.fetchTasks(apiQuery())
 }
 
+/**
+ * Re-sync the page after a create/update/delete. The change is already applied
+ * locally, so this swaps the rows underneath the user instead of emptying the
+ * list and flashing the loading spinner.
+ */
+function refreshQuietly() {
+  return store.fetchTasks(apiQuery(), { silent: true })
+}
+
 // --- Create / edit ---------------------------------------------------------
 const showModal = ref(false)
 const editing = ref<Task | null>(null)
@@ -223,7 +232,7 @@ function closeModal() {
 
 function onSaved() {
   closeModal()
-  reload()
+  refreshQuietly()
 }
 
 // --- Delete ----------------------------------------------------------------
@@ -243,6 +252,7 @@ async function confirmDelete() {
   deleteError.value = null
 
   try {
+    // The row is removed from the list as soon as the request succeeds.
     await store.deleteTask(deleting.value.id)
     deleting.value = null
 
@@ -251,7 +261,7 @@ async function confirmDelete() {
     if (store.items.length === 0 && meta && meta.current_page > 1) {
       goToPage(meta.current_page - 1)
     } else {
-      reload()
+      await refreshQuietly()
     }
   } catch (e) {
     deleteError.value = apiErrorMessage(e, 'Could not delete the task.')
