@@ -48,7 +48,7 @@ describe('TaskRow permissions', () => {
 
   it('shows Edit and Delete to the owner of the task', async () => {
     signIn(OWNER_ID)
-    expect(await buttonsFor(task())).toEqual(['Edit', 'Delete'])
+    expect(await buttonsFor(task())).toEqual(['Изменить', 'Удалить'])
   })
 
   it('hides Edit and Delete from a user who does not own the task', async () => {
@@ -58,21 +58,60 @@ describe('TaskRow permissions', () => {
 
   it('shows Edit and Delete to an admin, even on a task they do not own', async () => {
     signIn(STRANGER_ID, 'admin')
-    expect(await buttonsFor(task())).toEqual(['Edit', 'Delete'])
+    expect(await buttonsFor(task())).toEqual(['Изменить', 'Удалить'])
   })
 
-  it('shows the owner name to an admin', async () => {
+  it('shows the owner name when the list mixes owners', async () => {
     signIn(STRANGER_ID, 'admin')
-    const wrapper = await mountSuspended(TaskRow, { props: { task: task() } })
+    const wrapper = await mountSuspended(TaskRow, { props: { task: task(), showOwner: true } })
 
     expect(wrapper.text()).toContain('Regular User')
   })
 
-  it('hides the owner name from a regular user', async () => {
+  it('hides the owner name in a list of the user own tasks', async () => {
     signIn(OWNER_ID)
     const wrapper = await mountSuspended(TaskRow, { props: { task: task() } })
 
     expect(wrapper.text()).not.toContain('Regular User')
+  })
+})
+
+describe('TaskRow in the shared "all tasks" list', () => {
+  beforeEach(() => {
+    auth.user = null
+    auth.isAdmin = false
+  })
+
+  it('marks the user own task and keeps its buttons', async () => {
+    signIn(OWNER_ID)
+    const wrapper = await mountSuspended(TaskRow, { props: { task: task(), showOwner: true } })
+
+    expect(wrapper.find('.badge-own').text()).toBe('Моя')
+    expect(wrapper.findAll('button').map((b) => b.text())).toEqual(['Изменить', 'Удалить'])
+    // The badge says it already — no need to repeat the owner's name.
+    expect(wrapper.text()).not.toContain('Regular User')
+  })
+
+  it('leaves a foreign task unmarked and read-only', async () => {
+    signIn(STRANGER_ID)
+    const wrapper = await mountSuspended(TaskRow, { props: { task: task(), showOwner: true } })
+
+    expect(wrapper.find('.badge-own').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Regular User')
+    expect(wrapper.findAll('button')).toHaveLength(0)
+  })
+
+  it('marks an admin own task, and still lets them manage a foreign one', async () => {
+    signIn(OWNER_ID, 'admin')
+    const own = await mountSuspended(TaskRow, { props: { task: task(), showOwner: true } })
+    expect(own.find('.badge-own').exists()).toBe(true)
+    expect(own.findAll('button')).toHaveLength(2)
+
+    const foreign = await mountSuspended(TaskRow, {
+      props: { task: task({ user_id: STRANGER_ID }), showOwner: true },
+    })
+    expect(foreign.find('.badge-own').exists()).toBe(false)
+    expect(foreign.findAll('button')).toHaveLength(2)
   })
 })
 

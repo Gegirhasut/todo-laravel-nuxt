@@ -105,6 +105,21 @@ class TaskTest extends TestCase
             ->assertJsonValidationErrors('title');
     }
 
+    public function test_validation_messages_are_returned_in_russian(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tasks', [])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.title.0', 'Поле название обязательно для заполнения.');
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tasks', ['title' => 'Годное название', 'status' => 'nope'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.status.0', 'Выбранное значение поля статус недопустимо.');
+    }
+
     public function test_invalid_status_is_rejected(): void
     {
         $user = User::factory()->create();
@@ -136,15 +151,86 @@ class TaskTest extends TestCase
             ->assertJsonPath('data.id', $task->id);
     }
 
-    public function test_user_cannot_view_another_users_task(): void
+    public function test_user_can_view_another_users_task_but_not_change_it(): void
     {
         $user = User::factory()->create();
-        $task = Task::factory()->create();
+        $task = Task::factory()->create(['title' => 'Чужая задача']);
 
+        // Reading is open to any authenticated user (the shared "all tasks" view)...
         $this->actingAs($user, 'sanctum')
             ->getJson("/api/tasks/{$task->id}")
-            ->assertStatus(403)
-            ->assertJsonStructure(['message']);
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Чужая задача');
+
+        // ...but writing is not.
+        $this->actingAs($user, 'sanctum')
+            ->patchJson("/api/tasks/{$task->id}", ['title' => 'Перехвачено'])
+            ->assertStatus(403);
+    }
+
+    public function test_scope_all_lets_a_user_see_everyones_tasks(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->count(3)->for($user)->create();
+        Task::factory()->count(2)->create(); // other owners
+
+        // Default: only their own.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+
+        // scope=all: everyone's.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?scope=all')
+            ->assertOk()
+            ->assertJsonCount(5, 'data');
+    }
+
+    public function test_scope_mine_is_the_default(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->count(2)->for($user)->create();
+        Task::factory()->count(4)->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?scope=mine')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_admin_sees_everything_regardless_of_scope(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Task::factory()->count(4)->create();
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/tasks?scope=mine')
+            ->assertOk()
+            ->assertJsonCount(4, 'data');
+    }
+
+    public function test_an_unknown_scope_returns_422(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?scope=everything')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('scope');
+    }
+
+    public function test_scope_all_exposes_the_owner_of_each_task(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create(['name' => 'Второй пользователь']);
+        Task::factory()->for($other)->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tasks?scope=all')
+            ->assertOk()
+            ->assertJsonPath('data.0.owner.name', 'Второй пользователь')
+            ->assertJsonPath('data.0.user_id', $other->id);
     }
 
     public function test_user_can_update_their_own_task(): void
@@ -226,7 +312,7 @@ class TaskTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/tasks/999999')
             ->assertStatus(404)
-            ->assertExactJson(['message' => 'Resource not found.']);
+            ->assertExactJson(['message' => 'Ресурс не найден.']);
     }
 
     public function test_status_filter_works(): void

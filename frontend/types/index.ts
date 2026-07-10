@@ -33,9 +33,13 @@ export interface TaskPayload {
 export type SortColumn = 'due_date' | 'status' | 'title' | 'created_at'
 export type SortDirection = 'asc' | 'desc'
 
+/** 'mine' — only the caller's tasks, 'all' — everyone's, read-only elsewhere. */
+export type TaskScope = 'mine' | 'all'
+
 export interface TaskQuery {
   search?: string
   status?: TaskStatus
+  scope?: TaskScope
   sort?: SortColumn
   direction?: SortDirection
   page?: number

@@ -5,16 +5,21 @@ namespace App\Policies;
 use App\Models\Task;
 use App\Models\User;
 
-/**
- * Admins may act on any task; a regular user only on the ones they own.
- */
 class TaskPolicy
 {
+    /**
+     * Reading a single task is open to any authenticated user — the list can be
+     * browsed with ?scope=all, so a task the caller does not own may well be on
+     * their screen already.
+     */
     public function view(User $user, Task $task): bool
     {
-        return $this->owns($user, $task);
+        return true;
     }
 
+    /**
+     * Changing a task is limited to its owner. Admins may act on any task.
+     */
     public function update(User $user, Task $task): bool
     {
         return $this->owns($user, $task);

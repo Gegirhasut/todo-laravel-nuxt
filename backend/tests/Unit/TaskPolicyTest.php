@@ -41,12 +41,12 @@ class TaskPolicyTest extends TestCase
         $this->assertTrue($this->policy->delete($owner, $task));
     }
 
-    public function test_a_stranger_may_not_touch_someone_elses_task(): void
+    public function test_a_stranger_may_read_but_not_change_someone_elses_task(): void
     {
         $stranger = $this->user(2);
         $task = $this->taskOwnedBy(1);
 
-        $this->assertFalse($this->policy->view($stranger, $task));
+        $this->assertTrue($this->policy->view($stranger, $task));
         $this->assertFalse($this->policy->update($stranger, $task));
         $this->assertFalse($this->policy->delete($stranger, $task));
     }

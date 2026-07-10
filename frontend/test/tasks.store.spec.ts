@@ -45,11 +45,23 @@ describe('tasks store', () => {
       query: {
         search: 'milk',
         status: undefined,
+        scope: undefined,
         sort: undefined,
         direction: undefined,
         page: 2,
         per_page: undefined,
       },
+    })
+  })
+
+  it('passes scope=all through to the API', async () => {
+    apiMock.mockResolvedValue({ data: [task()], meta })
+
+    const store = useTasksStore()
+    await store.fetchTasks({ scope: 'all' })
+
+    expect(apiMock).toHaveBeenCalledWith('/tasks', {
+      query: expect.objectContaining({ scope: 'all' }),
     })
   })
 
@@ -64,52 +76,65 @@ describe('tasks store', () => {
   })
 
   it('captures the API error message and clears the list', async () => {
-    apiMock.mockRejectedValue(Object.assign(new Error('boom'), { data: { message: 'Server error.' } }))
+    apiMock.mockRejectedValue(Object.assign(new Error('boom'), { data: { message: 'Ошибка сервера.' } }))
 
     const store = useTasksStore()
     store.items = [task()]
     await store.fetchTasks()
 
-    expect(store.error).toBe('Server error.')
+    expect(store.error).toBe('Ошибка сервера.')
     expect(store.items).toEqual([])
     expect(store.loading).toBe(false)
     // An error is not an empty list — the UI shows a retry, not "no tasks".
     expect(store.isEmpty).toBe(false)
   })
 
-  it('a silent refresh never blanks the list, so the UI does not flash a spinner', async () => {
+  it('a silent refresh reports "refreshing", never "loading", so the list is not torn down', async () => {
     const store = useTasksStore()
     store.items = [task()]
 
-    let loadingWhileFetching: boolean | undefined
+    let seen: { loading: boolean; refreshing: boolean } | undefined
     apiMock.mockImplementation(async () => {
-      loadingWhileFetching = store.loading
+      seen = { loading: store.loading, refreshing: store.refreshing }
       return { data: [task({ status: 'completed' })], meta }
     })
 
     await store.fetchTasks({}, { silent: true })
 
-    expect(loadingWhileFetching).toBe(false)
+    expect(seen).toEqual({ loading: false, refreshing: true })
+    expect(store.refreshing).toBe(false)
     expect(store.items[0]!.status).toBe('completed')
   })
 
-  it('a normal fetch does show the loading state', async () => {
+  it('a normal fetch reports "loading", not "refreshing"', async () => {
     const store = useTasksStore()
 
-    let loadingWhileFetching: boolean | undefined
+    let seen: { loading: boolean; refreshing: boolean } | undefined
     apiMock.mockImplementation(async () => {
-      loadingWhileFetching = store.loading
+      seen = { loading: store.loading, refreshing: store.refreshing }
       return { data: [task()], meta }
     })
 
     await store.fetchTasks()
 
-    expect(loadingWhileFetching).toBe(true)
+    expect(seen).toEqual({ loading: true, refreshing: false })
     expect(store.loading).toBe(false)
   })
 
+  it('clears the refreshing flag even when the silent refresh fails', async () => {
+    apiMock.mockRejectedValue(new Error('boom'))
+
+    const store = useTasksStore()
+    store.items = [task()]
+
+    await store.fetchTasks({}, { silent: true })
+
+    expect(store.refreshing).toBe(false)
+    expect(store.items).toHaveLength(1)
+  })
+
   it('a failed silent refresh keeps the rows that are already on screen', async () => {
-    apiMock.mockRejectedValue(Object.assign(new Error('boom'), { data: { message: 'Server error.' } }))
+    apiMock.mockRejectedValue(Object.assign(new Error('boom'), { data: { message: 'Ошибка сервера.' } }))
 
     const store = useTasksStore()
     store.items = [task()]
@@ -136,15 +161,17 @@ describe('tasks store', () => {
   })
 
   it('removes a deleted task from the list', async () => {
-    apiMock.mockResolvedValue({ message: 'Task deleted.' })
+    apiMock.mockResolvedValue({ message: 'Задача удалена.' })
 
     const store = useTasksStore()
     store.items = [task({ id: 1 }), task({ id: 2 })]
 
-    await store.deleteTask(1)
+    const message = await store.deleteTask(1)
 
     expect(apiMock).toHaveBeenCalledWith('/tasks/1', { method: 'DELETE' })
     expect(store.items.map((t) => t.id)).toEqual([2])
+    // The confirmation the API sent back is what the toast shows.
+    expect(message).toBe('Задача удалена.')
   })
 
   it('lets a failed create bubble up so the form can show the 422', async () => {

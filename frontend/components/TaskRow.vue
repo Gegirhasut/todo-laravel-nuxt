@@ -1,27 +1,31 @@
 <template>
-  <div class="task-row card">
+  <div class="task-row card" :class="{ highlighted }">
     <div class="task-main">
       <div class="task-head">
         <span class="task-title" :class="{ done: task.status === 'completed' }">
           {{ task.title }}
         </span>
         <span class="badge" :class="`badge-${task.status}`">{{ statusLabel(task.status) }}</span>
+
+        <!-- Only worth saying when the list also holds other people's tasks. -->
+        <span v-if="showOwner && isOwn" class="badge badge-own">Моя</span>
       </div>
 
       <p v-if="task.description" class="task-desc muted">{{ task.description }}</p>
 
       <div class="task-meta muted">
         <span :class="{ overdue: isOverdue(task.due_date, task.status) }">
-          Due: {{ formatDate(task.due_date) }}
+          Срок: {{ formatDate(task.due_date) }}
         </span>
-        <span v-if="showOwner && task.owner"> · {{ task.owner.name }}</span>
+        <!-- The «Моя» badge already says whose it is, so don't repeat the name. -->
+        <span v-if="showOwner && !isOwn && task.owner"> · {{ task.owner.name }}</span>
       </div>
     </div>
 
     <!-- Hidden entirely when the current user may not act on this task. -->
     <div v-if="canManage" class="task-actions">
-      <button class="btn-ghost btn-sm" @click="emit('edit', task)">Edit</button>
-      <button class="btn-danger btn-sm" @click="emit('delete', task)">Delete</button>
+      <button class="btn-ghost btn-sm" @click="emit('edit', task)">Изменить</button>
+      <button class="btn-danger btn-sm" @click="emit('delete', task)">Удалить</button>
     </div>
   </div>
 </template>
@@ -29,7 +33,16 @@
 <script setup lang="ts">
 import type { Task } from '~/types'
 
-const props = defineProps<{ task: Task }>()
+const props = withDefaults(
+  defineProps<{
+    task: Task
+    /** Briefly flashes a task that was just added, so it is easy to spot. */
+    highlighted?: boolean
+    /** True when the list mixes several owners, i.e. admin or ?scope=all. */
+    showOwner?: boolean
+  }>(),
+  { highlighted: false, showOwner: false },
+)
 
 const emit = defineEmits<{
   edit: [task: Task]
@@ -38,12 +51,11 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 
+const isOwn = computed(() => props.task.user_id === auth.user?.id)
+
 // Mirrors TaskPolicy on the backend: admins manage everything, everyone else
 // only their own tasks.
-const canManage = computed(() => auth.isAdmin || props.task.user_id === auth.user?.id)
-
-// The owner's name is only interesting to an admin, who sees other people's tasks.
-const showOwner = computed(() => auth.isAdmin)
+const canManage = computed(() => auth.isAdmin || isOwn.value)
 </script>
 
 <style scoped>
@@ -53,6 +65,31 @@ const showOwner = computed(() => auth.isAdmin)
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.1rem;
+}
+.task-row.highlighted {
+  border-color: var(--success);
+  animation: flash 2s ease-out;
+}
+@keyframes flash {
+  0%,
+  35% {
+    background: #ebfbee;
+    box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.18);
+  }
+  100% {
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-row.highlighted {
+    animation: none;
+    background: #ebfbee;
+  }
+}
+.badge-own {
+  background: #eef2ff;
+  color: var(--primary);
 }
 .task-main {
   min-width: 0;
