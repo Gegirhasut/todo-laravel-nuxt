@@ -47,6 +47,25 @@ class AuthTest extends TestCase
             ->assertJsonPath('errors.email.0', 'Неверный email или пароль.');
     }
 
+    public function test_unknown_email_and_wrong_password_return_an_identical_response(): void
+    {
+        User::factory()->create(['email' => 'jane@example.com']);
+
+        $wrongPassword = $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'wrong-password',
+        ])->assertStatus(422);
+
+        $unknownEmail = $this->postJson('/api/auth/login', [
+            'email' => 'nobody@example.com',
+            'password' => 'wrong-password',
+        ])->assertStatus(422);
+
+        // Byte-for-byte identical bodies: nothing in the response says
+        // whether the account exists.
+        $this->assertSame($wrongPassword->json(), $unknownEmail->json());
+    }
+
     public function test_login_is_rate_limited_after_too_many_attempts(): void
     {
         User::factory()->create(['email' => 'jane@example.com']);
