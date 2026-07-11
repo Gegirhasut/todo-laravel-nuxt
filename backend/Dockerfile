@@ -18,6 +18,8 @@ RUN composer install --no-interaction --prefer-dist --no-progress --no-scripts -
 COPY . /app
 RUN composer dump-autoload --optimize \
     && php artisan package:discover --ansi \
+    # dev-only: broad perms for local review; in production, scope these to
+    # the php process owner (chown www-data + 775) instead of 777.
     && chmod -R 777 storage bootstrap/cache
 
 # The SQLite file lives on a volume so it survives a container restart.
